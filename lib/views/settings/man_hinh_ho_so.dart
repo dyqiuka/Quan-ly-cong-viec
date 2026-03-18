@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Thư viện database
-import 'package:intl/intl.dart'; // Để định dạng ngày tháng
+import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'package:intl/intl.dart'; 
+import 'package:provider/provider.dart';
 
 import '../../services/dich_vu_firebase.dart';
 import '../auth/man_hinh_dang_nhap.dart';
+import '../../providers/cai_dat_provider.dart';
 
 class ManHinhHoSo extends StatefulWidget {
-  const ManHinhHoSo({Key? key}) : super(key: key);
+  const ManHinhHoSo({super.key}); // Đã tối ưu super.key
 
   @override
   State<ManHinhHoSo> createState() => _ManHinhHoSoState();
@@ -25,7 +27,17 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
   void initState() {
     super.initState();
     _user = FirebaseAuth.instance.currentUser;
-    _taiThongTinTuFirestore(); // Tải ngày sinh và giới tính khi mở trang
+    _taiThongTinTuFirestore(); 
+  }
+
+  // Hàm dịch giới tính nhúng nhanh
+  String _hienThiGioiTinh(String gt, bool isEn) {
+    if (gt == "Chưa cập nhật") return isEn ? "Not updated" : "Chưa cập nhật";
+    if (!isEn) return gt;
+    if (gt == 'Nam') return 'Male';
+    if (gt == 'Nữ') return 'Female';
+    if (gt == 'Khác') return 'Other';
+    return gt;
   }
 
   // 1. HÀM TẢI THÔNG TIN TỪ FIRESTORE
@@ -47,30 +59,32 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
   // 2. HÀM CẬP NHẬT LÊN FIRESTORE
   Future<void> _capNhatFirestore(String truong, String giaTri) async {
     if (_user == null) return;
+    final isEn = context.read<CaiDatProvider>().isEnglish;
     try {
       await FirebaseFirestore.instance.collection('users').doc(_user!.uid).set({
         truong: giaTri
-      }, SetOptions(merge: true)); // merge: true để không làm mất dữ liệu cũ
-      _taiThongTinTuFirestore(); // Tải lại để UI hiển thị ngay
+      }, SetOptions(merge: true)); 
+      _taiThongTinTuFirestore(); 
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi lưu dữ liệu: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEn ? "Error saving data: $e" : "Lỗi lưu dữ liệu: $e")));
     }
   }
 
   // 3. ĐỔI TÊN
   void _doiTenNguoiDung() {
+    final isEn = context.read<CaiDatProvider>().isEnglish;
     TextEditingController tenController = TextEditingController(text: _user?.displayName);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Đổi tên hiển thị", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(isEn ? "Change Display Name" : "Đổi tên hiển thị", style: const TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: tenController,
-          decoration: const InputDecoration(hintText: "Nhập tên mới", border: OutlineInputBorder()),
+          decoration: InputDecoration(hintText: isEn ? "Enter new name" : "Nhập tên mới", border: const OutlineInputBorder()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Hủy", style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(isEn ? "Cancel" : "Hủy", style: const TextStyle(color: Colors.grey))),
           ElevatedButton(
             onPressed: () async {
               if (tenController.text.trim().isNotEmpty) {
@@ -79,24 +93,25 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
                 await _user?.reload();
                 setState(() => _user = FirebaseAuth.instance.currentUser);
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Đã cập nhật tên!")));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEn ? "Name updated!" : "Đã cập nhật tên!")));
               }
             },
-            child: const Text("Lưu"),
+            child: Text(isEn ? "Save" : "Lưu"),
           ),
         ],
       ),
     );
   }
 
-  // 4. CHỌN NGÀY SINH (Dùng bộ lịch của Flutter)
+  // 4. CHỌN NGÀY SINH
   Future<void> _chonNgaySinh() async {
+    final isEn = context.read<CaiDatProvider>().isEnglish;
     DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime(2000), 
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
-      helpText: "CHỌN NGÀY SINH",
+      helpText: isEn ? "SELECT DATE OF BIRTH" : "CHỌN NGÀY SINH",
     );
     if (pickedDate != null) {
       String formattedDate = DateFormat('dd/MM/yyyy').format(pickedDate);
@@ -106,16 +121,17 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
 
   // 5. CHỌN GIỚI TÍNH
   void _chonGioiTinh() {
+    final isEn = context.read<CaiDatProvider>().isEnglish;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Chọn giới tính", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(isEn ? "Select Gender" : "Chọn giới tính", style: const TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(title: const Text("Nam"), leading: const Icon(Icons.male, color: Colors.blue), onTap: () { Navigator.pop(context); _capNhatFirestore('gioiTinh', 'Nam'); }),
-            ListTile(title: const Text("Nữ"), leading: const Icon(Icons.female, color: Colors.pink), onTap: () { Navigator.pop(context); _capNhatFirestore('gioiTinh', 'Nữ'); }),
-            ListTile(title: const Text("Khác"), leading: const Icon(Icons.transgender, color: Colors.purple), onTap: () { Navigator.pop(context); _capNhatFirestore('gioiTinh', 'Khác'); }),
+            ListTile(title: Text(isEn ? "Male" : "Nam"), leading: const Icon(Icons.male, color: Colors.blue), onTap: () { Navigator.pop(context); _capNhatFirestore('gioiTinh', 'Nam'); }),
+            ListTile(title: Text(isEn ? "Female" : "Nữ"), leading: const Icon(Icons.female, color: Colors.pink), onTap: () { Navigator.pop(context); _capNhatFirestore('gioiTinh', 'Nữ'); }),
+            ListTile(title: Text(isEn ? "Other" : "Khác"), leading: const Icon(Icons.transgender, color: Colors.purple), onTap: () { Navigator.pop(context); _capNhatFirestore('gioiTinh', 'Khác'); }),
           ],
         ),
       ),
@@ -124,17 +140,18 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
 
   // 6. ĐỔI ẢNH ĐẠI DIỆN BẰNG LINK
   void _doiAnhDaiDien() {
+    final isEn = context.read<CaiDatProvider>().isEnglish;
     TextEditingController linkAnhController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Cập nhật ảnh đại diện", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(isEn ? "Update Avatar" : "Cập nhật ảnh đại diện", style: const TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: linkAnhController,
-          decoration: const InputDecoration(hintText: "Dán link ảnh (URL) vào đây", border: OutlineInputBorder()),
+          decoration: InputDecoration(hintText: isEn ? "Paste image URL here" : "Dán link ảnh (URL) vào đây", border: const OutlineInputBorder()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Hủy", style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(isEn ? "Cancel" : "Hủy", style: const TextStyle(color: Colors.grey))),
           ElevatedButton(
             onPressed: () async {
               if (linkAnhController.text.trim().isNotEmpty) {
@@ -144,7 +161,7 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
                 setState(() => _user = FirebaseAuth.instance.currentUser);
               }
             },
-            child: const Text("Cập nhật"),
+            child: Text(isEn ? "Update" : "Cập nhật"),
           ),
         ],
       ),
@@ -152,42 +169,77 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
   }
 
   // 7. ĐỔI MẬT KHẨU
-  void _doiMatKhau() {
+  void _doiMatKhau() async {
+    if (_user == null || _user?.email == null) return;
+    final isEn = context.read<CaiDatProvider>().isEnglish;
+
     if (_user?.providerData[0].providerId == 'google.com') {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tài khoản Google không thể đổi mật khẩu tại đây.")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isEn 
+            ? "Google accounts do not need a password change here." 
+            : "Tài khoản Google không cần đổi mật khẩu tại đây."))
+      );
       return;
     }
-    TextEditingController matKhauController = TextEditingController();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Đổi mật khẩu", style: TextStyle(fontWeight: FontWeight.bold)),
-        content: TextField(
-          controller: matKhauController,
-          obscureText: true, 
-          decoration: const InputDecoration(hintText: "Nhập mật khẩu mới (min 6 ký tự)", border: OutlineInputBorder()),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isEn ? "Change Password" : "Đổi mật khẩu", style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(
+          isEn 
+              ? "We will send a password reset link to:\n\n${_user!.email}\n\nDo you want to continue?"
+              : "Chúng tôi sẽ gửi link tạo mật khẩu mới đến email:\n\n${_user!.email}\n\nBạn có muốn tiếp tục không?",
+          style: const TextStyle(fontSize: 14),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Hủy", style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext), 
+            child: Text(isEn ? "Cancel" : "Hủy", style: const TextStyle(color: Colors.grey))
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () async {
-              if (matKhauController.text.length >= 6) {
-                Navigator.pop(context);
-                try {
-                  await _user?.updatePassword(matKhauController.text);
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Đổi mật khẩu thành công!")));
-                } catch (e) {
-                  if (e.toString().contains('requires-recent-login')) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vui lòng đăng xuất và đăng nhập lại để thực hiện.")));
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi: $e")));
-                  }
-                }
+              Navigator.pop(dialogContext); 
+              try {
+                await _dichVuFirebase.quenMatKhau(_user!.email!);
+                if (!mounted) return;
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: Colors.green.shade700,
+                    duration: const Duration(seconds: 5),
+                    content: Text(
+                      isEn 
+                          ? "✔ Link sent! Please check your Email to change password and login again."
+                          : "✔ Đã gửi link! Vui lòng check Email để đổi mật khẩu rồi đăng nhập lại.",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  )
+                );
+
+                await _dichVuFirebase.dangXuat();
+                if (!mounted) return;
+
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ManHinhDangNhap()),
+                  (route) => false, 
+                );
+
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: Colors.red,
+                    content: Text(isEn 
+                        ? "Error: Cannot send email right now. Please try again later!" 
+                        : "Lỗi: Không thể gửi email lúc này. Vui lòng thử lại sau!")
+                  )
+                );
               }
             },
-            child: const Text("Lưu", style: TextStyle(color: Colors.white)),
+            child: Text(isEn ? "Send Email" : "Gửi Email", style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -196,17 +248,29 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
 
   @override
   Widget build(BuildContext context) {
-    const bgColor = Color(0xFFF0F4FF);
-    const cardColor = Colors.white;
-    const textColor = Colors.black87;
+    // Lấy Ngôn ngữ & Dark Mode từ Provider
+    final isEn = context.watch<CaiDatProvider>().isEnglish;
+    final isDark = context.watch<CaiDatProvider>().isDarkMode;
+
+    // 🔥 Cấu hình màu sắc động
+    final bgColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF0F4FF);
+    final cardColor = isDark ? Colors.grey[850]! : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey;
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: textColor), onPressed: () => Navigator.pop(context)),
-        title: const Text("Hồ sơ cá nhân", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new, color: textColor), 
+          onPressed: () => Navigator.pop(context)
+        ),
+        title: Text(
+          isEn ? "Profile" : "Hồ sơ cá nhân", 
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -220,9 +284,9 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
                 children: [
                   CircleAvatar(
                     radius: 55,
-                    backgroundColor: Colors.blue.shade100,
+                    backgroundColor: isDark ? Colors.blue.shade900 : Colors.blue.shade100,
                     backgroundImage: _user?.photoURL != null ? NetworkImage(_user!.photoURL!) : null,
-                    child: _user?.photoURL == null ? const Icon(Icons.person, size: 55, color: Colors.blue) : null,
+                    child: _user?.photoURL == null ? Icon(Icons.person, size: 55, color: isDark ? Colors.white70 : Colors.blue) : null,
                   ),
                   GestureDetector(
                     onTap: _doiAnhDaiDien,
@@ -242,44 +306,57 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
               decoration: BoxDecoration(
                 color: cardColor,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
+                // Fix cảnh báo withOpacity -> withValues
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))]
               ),
               child: Column(
                 children: [
                   // Tên
                   ListTile(
                     leading: const Icon(Icons.badge, color: Colors.blue),
-                    title: const Text("Họ và tên", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    subtitle: Text(_user?.displayName ?? "Duy", style: const TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.bold)),
+                    title: Text(isEn ? "Full Name" : "Họ và tên", style: TextStyle(fontSize: 12, color: subtitleColor)),
+                    subtitle: Text(
+                      _user?.displayName ?? (isEn ? "No name" : "Chưa có tên"), 
+                      style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.bold)
+                    ),
                     trailing: const Icon(Icons.edit, size: 18, color: Colors.grey),
                     onTap: _doiTenNguoiDung,
                   ),
-                  const Divider(height: 1),
+                  Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
 
                   // Gmail
                   ListTile(
                     leading: const Icon(Icons.email, color: Colors.redAccent),
-                    title: const Text("Gmail", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    subtitle: Text(_user?.email ?? "Chưa có email", style: const TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.bold)),
-                    trailing: const Icon(Icons.lock_outline, size: 18, color: Colors.grey), // Có ổ khóa ý chỉ không sửa được
+                    title: Text("Gmail", style: TextStyle(fontSize: 12, color: subtitleColor)),
+                    subtitle: Text(
+                      _user?.email ?? (isEn ? "No email" : "Chưa có email"), 
+                      style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.bold)
+                    ),
+                    trailing: const Icon(Icons.lock_outline, size: 18, color: Colors.grey), 
                   ),
-                  const Divider(height: 1),
+                  Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
 
                   // Ngày sinh
                   ListTile(
                     leading: const Icon(Icons.cake, color: Colors.orange),
-                    title: const Text("Ngày sinh", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    subtitle: Text(_ngaySinh, style: const TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.bold)),
+                    title: Text(isEn ? "Date of Birth" : "Ngày sinh", style: TextStyle(fontSize: 12, color: subtitleColor)),
+                    subtitle: Text(
+                      _ngaySinh == "Chưa cập nhật" ? (isEn ? "Not updated" : "Chưa cập nhật") : _ngaySinh, 
+                      style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.bold)
+                    ),
                     trailing: const Icon(Icons.edit, size: 18, color: Colors.grey),
                     onTap: _chonNgaySinh,
                   ),
-                  const Divider(height: 1),
+                  Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
 
                   // Giới tính
                   ListTile(
                     leading: const Icon(Icons.people, color: Colors.green),
-                    title: const Text("Giới tính", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    subtitle: Text(_gioiTinh, style: const TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.bold)),
+                    title: Text(isEn ? "Gender" : "Giới tính", style: TextStyle(fontSize: 12, color: subtitleColor)),
+                    subtitle: Text(
+                      _hienThiGioiTinh(_gioiTinh, isEn), 
+                      style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.bold)
+                    ),
                     trailing: const Icon(Icons.edit, size: 18, color: Colors.grey),
                     onTap: _chonGioiTinh,
                   ),
@@ -294,11 +371,15 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
               decoration: BoxDecoration(
                 color: cardColor,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))]
               ),
               child: ListTile(
-                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.key, color: Colors.orange)),
-                title: const Text("Đổi mật khẩu", style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+                leading: Container(
+                  padding: const EdgeInsets.all(8), 
+                  decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), shape: BoxShape.circle), 
+                  child: const Icon(Icons.key, color: Colors.orange)
+                ),
+                title: Text(isEn ? "Change Password" : "Đổi mật khẩu", style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                 onTap: _doiMatKhau,
               ),
@@ -321,12 +402,15 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
                   );
                 },
                 icon: const Icon(Icons.logout, size: 24),
-                label: const Text("Đăng xuất", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                label: Text(isEn ? "Log Out" : "Đăng xuất", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade50,
+                  backgroundColor: isDark ? Colors.red.withValues(alpha: 0.2) : Colors.red.shade50,
                   foregroundColor: Colors.redAccent,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.red.shade200)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16), 
+                    side: BorderSide(color: isDark ? Colors.red.shade900 : Colors.red.shade200)
+                  ),
                 ),
               ),
             ),

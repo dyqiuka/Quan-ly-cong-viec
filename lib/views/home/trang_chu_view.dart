@@ -10,7 +10,7 @@ import '../task/man_hinh_nhap_lieu.dart';
 import '../task/man_hinh_chi_tiet.dart';
 import 'item_cong_viec_widget.dart';
 import '../settings/man_hinh_ho_so.dart';
-import 'thanh_tien_do_lua_widget.dart'; // Widget chứa hiệu ứng lửa đã được tách riêng
+import 'thanh_tien_do_lua_widget.dart';
 
 class TrangChuView extends StatefulWidget {
   const TrangChuView({Key? key}) : super(key: key);
@@ -19,26 +19,54 @@ class TrangChuView extends StatefulWidget {
   State<TrangChuView> createState() => _TrangChuViewState();
 }
 
-class _TrangChuViewState extends State<TrangChuView> {
-  // Controller cho thanh tìm kiếm
+class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
 
-  String _loaiBoLoc = 'all'; 
   String _danhMucDuocChon = 'All';
   String _tuKhoaTimKiem = '';
   bool _hienThanhTimKiem = false;
   final List<String> _danhSachDanhMuc = ["All", "Học tập", "Công việc", "Cá nhân", "Sức khỏe", "Khác"];
 
+  late AnimationController _pulseController;
+
+  final GlobalKey _keyQuaHan = GlobalKey();
+  final GlobalKey _keyHomNay = GlobalKey();
+  String _mucDangHighlight = 'All'; 
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+  }
+
   @override
   void dispose() {
+    _pulseController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  // Dịch danh mục
+  void _cuonDenMuc(GlobalKey key, String muc) {
+    setState(() {
+      _mucDangHighlight = _mucDangHighlight == muc ? 'All' : muc;
+    });
+
+    if (_mucDangHighlight != 'All' && key.currentContext != null) {
+      Scrollable.ensureVisible(
+        key.currentContext!,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOutCubic,
+        alignment: 0.1, 
+      );
+    }
+  }
+
   String _dichDanhMuc(String cat, bool isEng) {
     if (!isEng) return cat;
-    switch(cat) {
+    switch (cat) {
       case "Học tập": return "Study";
       case "Công việc": return "Work";
       case "Cá nhân": return "Personal";
@@ -48,7 +76,6 @@ class _TrangChuViewState extends State<TrangChuView> {
     }
   }
 
-  // Lời chào theo thời gian
   String _layLoiChao(bool isEng) {
     final hour = DateTime.now().hour;
     if (hour < 12) return isEng ? "Good morning" : "Chào buổi sáng";
@@ -56,12 +83,20 @@ class _TrangChuViewState extends State<TrangChuView> {
     return isEng ? "Good evening" : "Chào buổi tối";
   }
 
-  // Mở Màn hình Hồ sơ người dùng
-  void _moHoSoNguoiDung() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ManHinhHoSo()),
-    );
+  DateTime? _phanTichNgay(String input) {
+    if (input.trim().isEmpty) return null;
+    try {
+      final parts = input.trim().split(RegExp(r'[\s\/\-\.]'));
+      List<int> nums = parts.where((p) => RegExp(r'^\d+$').hasMatch(p)).map((e) => int.parse(e)).toList();
+      if (nums.length >= 3) {
+        int n1 = nums[0], n2 = nums[1], n3 = nums[2];
+        if (n1 > 1000) return DateTime(n1, n2, n3);
+        if (n3 > 1000) return DateTime(n3, n2, n1);
+      }
+      return DateTime.tryParse(input.trim());
+    } catch (e) {
+      return null;
+    }
   }
 
   @override
@@ -77,8 +112,6 @@ class _TrangChuViewState extends State<TrangChuView> {
 
     String locale = isEng ? 'en_US' : 'vi_VN';
     String ngayHienTai = DateFormat('EEEE, d MMMM', locale).format(DateTime.now());
-
-    // Lấy tên người dùng từ Firebase
     final user = FirebaseAuth.instance.currentUser;
     String tenNguoiDung = user?.displayName ?? (isEng ? "User" : "Bạn");
 
@@ -86,79 +119,91 @@ class _TrangChuViewState extends State<TrangChuView> {
       backgroundColor: bgColor,
       body: Consumer<QuanLyCongViecProvider>(
         builder: (context, provider, child) {
-          final tasks = provider.danhSachCongViec;
-          final activeTasks = tasks.where((t) => t.trangThai == 0).toList();
-          final completedTasks = tasks.where((t) => t.trangThai == 1).toList();
-
-          // 🔥 BỘ TÍNH TOÁN NGÀY THÁNG (Giữ nguyên chuỗi dữ liệu để mốt dùng cho Dashboard)
-          int viecHomNayChuaXong = 0;
-          int viecHomNayHoanThanh = 0;
-          int viecBoQua = 0; 
-          int tongCon = activeTasks.length; // Tổng tất cả việc chưa làm (mọi thời điểm)
           
-          final now = DateTime.now();
-          final todayDate = DateTime(now.year, now.month, now.day); 
-          
-          for (var t in tasks) {
-            DateTime? taskDate;
-            String input = t.ngayThucHien.toString().trim();
+          // Lấy danh sách gốc từ Provider
+          final rawTasks = provider.danhSachCongViec;
 
-            if (input.isNotEmpty) {
-              try {
-                final parts = input.split(RegExp(r'[\s\/\-\.]'));
-                List<int> nums = parts.where((p) => RegExp(r'^\d+$').hasMatch(p)).map((e) => int.parse(e)).toList();
-                
-                if (nums.length >= 3) {
-                  int n1 = nums[0], n2 = nums[1], n3 = nums[2];
-                  if (n1 > 1000) taskDate = DateTime(n1, n2, n3);
-                  else if (n3 > 1000) taskDate = DateTime(n3, n2, n1);
-                }
-                taskDate ??= DateTime.tryParse(input);
-              } catch (e) {}
+          // 🔥 BƯỚC QUAN TRỌNG: SẮP XẾP THEO ĐỘ ƯU TIÊN (High -> Medium -> Low)
+          List<CongViec> tasks = List.from(rawTasks);
+          tasks.sort((a, b) {
+            int getPriorityScore(String? mucDo) {
+              if (mucDo == 'High') return 3;
+              if (mucDo == 'Medium') return 2;
+              if (mucDo == 'Low') return 1;
+              return 0; // Không có mức độ
             }
+            // Xếp giảm dần (Điểm cao nằm trên)
+            return getPriorityScore(b.mucDoUuTien).compareTo(getPriorityScore(a.mucDoUuTien));
+          });
 
+          final now = DateTime.now();
+          final todayDate = DateTime(now.year, now.month, now.day);
+          final tomorrowDate = todayDate.add(const Duration(days: 1));
+
+          // 1. DỮ LIỆU THỐNG KÊ (Cho khối Tiến độ ở trên)
+          int viecHomNayTong = 0;
+          int viecHomNayDaXong = 0;
+          int viecBoQua = 0;
+          int tongCon = tasks.where((t) => t.trangThai == 0).length;
+
+          // 2. DỮ LIỆU NHÓM (Chỉ chứa việc CHƯA LÀM)
+          List<CongViec> groupQuaHan = [];
+          List<CongViec> groupHomNay = [];
+          List<CongViec> groupNgayMai = [];
+          List<CongViec> groupSapToi = [];
+          List<CongViec> groupKhongNgay = [];
+      
+          // LỌC VÀ CHIA NHÓM
+          for (var t in tasks) {
+            DateTime? taskDate = _phanTichNgay(t.ngayThucHien.toString());
+
+            // --- BƯỚC 1: TÍNH THỐNG KÊ TRÊN HEADER (Đếm cả việc đã xong) ---
             if (taskDate != null) {
               DateTime nDate = DateTime(taskDate.year, taskDate.month, taskDate.day);
-              if (t.trangThai == 0) { 
+              if (t.trangThai == 0 && nDate.isBefore(todayDate)) viecBoQua++;
+              if (nDate.isAtSameMomentAs(todayDate)) {
+                viecHomNayTong++;
+                if (t.trangThai == 1) viecHomNayDaXong++;
+              }
+            }
+
+            // --- BƯỚC 2: ẨN VIỆC ĐÃ XONG KHỎI TRANG CHỦ ---
+            if (t.trangThai == 1) continue;
+
+            // --- BƯỚC 3: KIỂM TRA BỘ LỌC TÌM KIẾM ---
+            bool passFilter = true;
+            if (_danhMucDuocChon != 'All' && t.danhMuc != _danhMucDuocChon) passFilter = false;
+            if (_tuKhoaTimKiem.isNotEmpty) {
+              final keyword = _tuKhoaTimKiem.toLowerCase();
+              if (!t.tieuDe.toLowerCase().contains(keyword) && !t.noiDung.toLowerCase().contains(keyword)) passFilter = false;
+            }
+
+            // --- BƯỚC 4: ĐƯA VIỆC VÀO TỪNG NHÓM ---
+            if (passFilter) {
+              if (taskDate == null) {
+                groupKhongNgay.add(t);
+              } else {
+                DateTime nDate = DateTime(taskDate.year, taskDate.month, taskDate.day);
                 if (nDate.isBefore(todayDate)) {
-                  viecBoQua++; 
+                  groupQuaHan.add(t);
                 } else if (nDate.isAtSameMomentAs(todayDate)) {
-                  viecHomNayChuaXong++; 
-                }
-              } else if (t.trangThai == 1) { 
-                if (nDate.isAtSameMomentAs(todayDate)) {
-                  viecHomNayHoanThanh++; 
+                  groupHomNay.add(t);
+                } else if (nDate.isAtSameMomentAs(tomorrowDate)) {
+                  groupNgayMai.add(t);
+                } else if (nDate.isAfter(tomorrowDate)) {
+                  groupSapToi.add(t);
                 }
               }
             }
           }
 
-          // 🔥 TÍNH TOÁN TỔNG TIẾN ĐỘ TOÀN BỘ CÔNG VIỆC
-          int tongTatCaViec = tasks.length;
-          int tongViecDaXong = completedTasks.length;
-          int tongPhanTram = tongTatCaViec > 0 ? ((tongViecDaXong / tongTatCaViec) * 100).round() : 0;
-          double progressValue = tongTatCaViec > 0 ? (tongViecDaXong / tongTatCaViec) : 0.0;
-          
-          // Cờ hiệu báo đạt 100% để hiển thị màu chữ Cam
-          bool isFireActive = (tongTatCaViec > 0 && tongViecDaXong == tongTatCaViec);
-
-          // LOGIC CHUẨN: BỘ LỌC 3 LỚP
-          List<CongViec> filteredTasks = tasks.where((task) {
-            if (_danhMucDuocChon != 'All' && task.danhMuc != _danhMucDuocChon) return false;
-            if (_loaiBoLoc == 'active' && task.trangThai == 1) return false;
-            if (_loaiBoLoc == 'completed' && task.trangThai == 0) return false;
-            if (_tuKhoaTimKiem.isNotEmpty) {
-              final keyword = _tuKhoaTimKiem.toLowerCase();
-              return task.tieuDe.toLowerCase().contains(keyword) || 
-                     task.noiDung.toLowerCase().contains(keyword);
-            }
-            return true;
-          }).toList();
+          int percentHomNay = viecHomNayTong > 0 ? ((viecHomNayDaXong / viecHomNayTong) * 100).round() : 0;
+          double progressHomNay = viecHomNayTong > 0 ? (viecHomNayDaXong / viecHomNayTong) : 0.0;
+          bool isFireActive = (viecHomNayTong > 0 && viecHomNayDaXong == viecHomNayTong);
 
           return SafeArea(
-            // TOÀN BỘ MÀN HÌNH KÉO ĐƯỢC
             child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(), 
+              physics: const BouncingScrollPhysics(),
               child: Column(
                 children: [
                   // ── PHẦN HEADER ──
@@ -167,8 +212,7 @@ class _TrangChuViewState extends State<TrangChuView> {
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Color(0xFF1E3A8A), Color(0xFF1E40AF), Color(0xFF2563EB)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
                       ),
                     ),
                     child: Column(
@@ -181,28 +225,34 @@ class _TrangChuViewState extends State<TrangChuView> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(ngayHienTai, style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                                  Text(ngayHienTai, style: const TextStyle(color: Colors.white70, fontSize: 14)),
                                   const SizedBox(height: 4),
-                                  Text("${_layLoiChao(isEng)}, $tenNguoiDung 👋", style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, height: 1.2)),
+                                  Text("${_layLoiChao(isEng)}, $tenNguoiDung 👋", style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 12),
                                   
-                                  // TÁCH 3 ĐẦU DÒNG CHUẨN
+                                  // 🔥 3 DÒNG THỐNG KÊ (BIẾN THÀNH NÚT BẤM CÓ TƯƠNG TÁC)
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        isEng ? "• Missed tasks: $viecBoQua" : "• Bạn đã bỏ qua: $viecBoQua việc", 
-                                        style: const TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.w600)
+                                      _buildClickableBullet(
+                                        text: isEng ? "• Missed tasks: $viecBoQua" : "• Đã bỏ qua: $viecBoQua việc",
+                                        color: Colors.orangeAccent,
+                                        isActive: _mucDangHighlight == 'QuaHan',
+                                        onTap: () => _cuonDenMuc(_keyQuaHan, 'QuaHan'),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        isEng ? "• Today's tasks: $viecHomNayChuaXong" : "• Hôm nay cần làm: $viecHomNayChuaXong việc", 
-                                        style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.w600)
+                                      _buildClickableBullet(
+                                        text: isEng ? "• Today's tasks: $viecHomNayTong" : "• Hôm nay cần làm: $viecHomNayTong việc",
+                                        color: Colors.greenAccent,
+                                        isActive: _mucDangHighlight == 'HomNay',
+                                        onTap: () => _cuonDenMuc(_keyHomNay, 'HomNay'),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        isEng ? "• Total pending: $tongCon" : "• Tổng còn: $tongCon việc", 
-                                        style: const TextStyle(color: Colors.white, fontSize: 13)
+                                      _buildClickableBullet(
+                                        text: isEng ? "• Total pending: $tongCon" : "• Tổng còn: $tongCon việc",
+                                        color: Colors.white,
+                                        isActive: _mucDangHighlight == 'All', 
+                                        onTap: () {
+                                          setState(() => _mucDangHighlight = 'All');
+                                        },
                                       ),
                                     ],
                                   ),
@@ -210,10 +260,9 @@ class _TrangChuViewState extends State<TrangChuView> {
                               ),
                             ),
                             Row(
-                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: Icon(_hienThanhTimKiem ? Icons.close : Icons.search, color: Colors.white), 
+                                  icon: Icon(_hienThanhTimKiem ? Icons.close : Icons.search, color: Colors.white),
                                   onPressed: () {
                                     setState(() {
                                       _hienThanhTimKiem = !_hienThanhTimKiem;
@@ -225,22 +274,14 @@ class _TrangChuViewState extends State<TrangChuView> {
                                   }
                                 ),
                                 GestureDetector(
-                                  onTap: _moHoSoNguoiDung,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManHinhHoSo())),
                                   child: Container(
                                     margin: const EdgeInsets.only(left: 8),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2), 
-                                    ),
+                                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
                                     child: CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: Colors.white.withOpacity(0.3),
-                                      backgroundImage: user?.photoURL != null 
-                                          ? NetworkImage(user!.photoURL!) 
-                                          : null,
-                                      child: user?.photoURL == null 
-                                          ? const Icon(Icons.person, color: Colors.white, size: 20) 
-                                          : null,
+                                      radius: 16, backgroundColor: Colors.white.withOpacity(0.3),
+                                      backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+                                      child: user?.photoURL == null ? const Icon(Icons.person, color: Colors.white, size: 20) : null,
                                     ),
                                   ),
                                 ),
@@ -249,31 +290,55 @@ class _TrangChuViewState extends State<TrangChuView> {
                           ],
                         ),
                         const SizedBox(height: 24),
-                        
-                        // 🔥 TỔNG TIẾN ĐỘ + GỌI WIDGET LỬA
-                        Container(
+
+                        // 🔥 KHỐI TIẾN ĐỘ HÔM NAY
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 500),
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: isFireActive ? [BoxShadow(color: Colors.orangeAccent.withOpacity(0.3), blurRadius: 10)] : [],
+                            border: isFireActive ? Border.all(color: Colors.orangeAccent.withOpacity(0.8), width: 1.5) : Border.all(color: Colors.transparent, width: 1.5),
+                          ),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(isEng ? "Overall Progress" : "Tổng tiến độ", style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
-                                  Text("$tongPhanTram%", style: TextStyle(color: isFireActive ? Colors.orangeAccent : Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                                  Text(isEng ? "Today's Mission" : "Nhiệm vụ hôm nay", style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                                  
+                                  Row(
+                                    children: [
+                                      Text("$percentHomNay%", style: TextStyle(color: isFireActive ? Colors.orangeAccent : Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                      const SizedBox(width: 8),
+                                      AnimatedBuilder(
+                                        animation: _pulseController,
+                                        builder: (context, child) {
+                                          return Transform.scale(
+                                            scale: isFireActive ? 1.0 + (_pulseController.value * 0.2) : 1.0,
+                                            child: Icon(
+                                              Icons.local_fire_department_rounded,
+                                              size: 24,
+                                              color: isFireActive ? Colors.orangeAccent : Colors.white30,
+                                              shadows: isFireActive ? [Shadow(color: Colors.redAccent, blurRadius: 10 * _pulseController.value)] : [],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              
-                              // 🔥 GỌI WIDGET THANH TIẾN ĐỘ LỬA TỪ FILE ĐÃ TÁCH
-                              ThanhTienDoLuaWidget(progressValue: progressValue),
-                              
+                              ThanhTienDoLuaWidget(progressValue: progressHomNay),
                               const SizedBox(height: 16),
                               Row(
                                 children: [
-                                  _buildTrangThaiCham(Colors.amberAccent, isEng ? "${activeTasks.length} Pending" : "${activeTasks.length} đang chờ"),
+                                  _buildTrangThaiCham(Colors.amberAccent, isEng ? "${viecHomNayTong - viecHomNayDaXong} Pending" : "${viecHomNayTong - viecHomNayDaXong} đang chờ"),
                                   const SizedBox(width: 16),
-                                  _buildTrangThaiCham(Colors.greenAccent, isEng ? "${completedTasks.length} Done" : "${completedTasks.length} hoàn thành"),
+                                  _buildTrangThaiCham(Colors.greenAccent, isEng ? "$viecHomNayDaXong Done" : "$viecHomNayDaXong hoàn thành"),
                                 ],
                               )
                             ],
@@ -284,108 +349,69 @@ class _TrangChuViewState extends State<TrangChuView> {
                   ),
 
                   // ── THANH TÌM KIẾM ──
-                  AnimatedCrossFade(
-                    firstChild: const SizedBox(width: double.infinity, height: 0),
-                    secondChild: Container(
-                      padding: const EdgeInsets.all(16), 
-                      color: cardColor,
-                      child: TextField(
-                        controller: _searchController, 
-                        autofocus: true, 
-                        onChanged: (value) => setState(() => _tuKhoaTimKiem = value),
-                        style: TextStyle(color: textColor),
-                        decoration: InputDecoration(
-                          hintText: isEng ? "Search..." : "Tìm kiếm...", 
-                          hintStyle: TextStyle(color: subTextColor),
-                          prefixIcon: const Icon(Icons.search, color: Colors.grey), 
-                          filled: true, 
-                          fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade50, 
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)
-                        ),
+                  if (_hienThanhTimKiem) Container(
+                    padding: const EdgeInsets.all(16), color: cardColor,
+                    child: TextField(
+                      controller: _searchController, autofocus: true,
+                      onChanged: (value) => setState(() => _tuKhoaTimKiem = value),
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
+                        hintText: isEng ? "Search..." : "Tìm kiếm...",
+                        prefixIcon: const Icon(Icons.search, color: Colors.grey), filled: true,
+                        fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)
                       ),
                     ),
-                    crossFadeState: _hienThanhTimKiem ? CrossFadeState.showSecond : CrossFadeState.showFirst, 
-                    duration: const Duration(milliseconds: 300),
                   ),
 
-                  // ── DANH SÁCH BÊN DƯỚI ──
+                  // ── DANH SÁCH CHIA NHÓM (GROUP BY DATE) ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 20),
+                        
+                        // --- CATEGORIES HORIZONTAL BAR ---
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(isEng ? "Categories" : "Danh mục", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
-                            TextButton.icon(
-                              onPressed: () => setState(() => _loaiBoLoc = _loaiBoLoc == 'all' ? 'active' : _loaiBoLoc == 'active' ? 'completed' : 'all'),
-                              icon: const Icon(Icons.tune, size: 16, color: Colors.blue),
-                              label: Text(
-                                _loaiBoLoc == 'all' ? (isEng ? "All" : "Tất cả") : _loaiBoLoc == 'active' ? (isEng ? "Active" : "Đang làm") : (isEng ? "Done" : "Đã xong"), 
-                                style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold)
-                              ),
-                            )
                           ],
                         ),
-                        // Thanh ngang Categories
+                        const SizedBox(height: 12),
                         SizedBox(
                           height: 36,
                           child: ListView.builder(
-                            scrollDirection: Axis.horizontal, 
-                            itemCount: _danhSachDanhMuc.length,
-                            physics: const BouncingScrollPhysics(), 
+                            scrollDirection: Axis.horizontal, itemCount: _danhSachDanhMuc.length,
                             itemBuilder: (context, index) {
                               String cat = _danhSachDanhMuc[index];
                               bool isSelected = _danhMucDuocChon == cat;
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
-                                  showCheckmark: false, 
-                                  label: Text(_dichDanhMuc(cat, isEng)), 
-                                  selected: isSelected, 
-                                  onSelected: (_) => setState(() => _danhMucDuocChon = cat),
-                                  selectedColor: Colors.blue.shade600, 
-                                  backgroundColor: cardColor,
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.grey.shade600), 
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, fontSize: 13
-                                  ),
+                                  showCheckmark: false, label: Text(_dichDanhMuc(cat, isEng)),
+                                  selected: isSelected, onSelected: (_) => setState(() => _danhMucDuocChon = cat),
+                                  selectedColor: Colors.blue.shade600, backgroundColor: cardColor,
+                                  labelStyle: TextStyle(color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.grey.shade600), fontWeight: isSelected ? FontWeight.bold : FontWeight.w500),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSelected ? Colors.transparent : (isDark ? Colors.grey.shade800 : Colors.grey.shade300))),
                                 ),
                               );
                             },
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Text(
-                          _loaiBoLoc == 'all' 
-                              ? (isEng ? "All tasks (${filteredTasks.length})" : "Tất cả công việc (${filteredTasks.length})") 
-                              : _loaiBoLoc == 'active' 
-                                  ? (isEng ? "Active (${filteredTasks.length})" : "Đang làm (${filteredTasks.length})") 
-                                  : (isEng ? "Completed (${filteredTasks.length})" : "Đã hoàn thành (${filteredTasks.length})"),
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
-                        ),
                         const SizedBox(height: 10),
-                        
-                        // Danh sách công việc
-                        filteredTasks.isEmpty 
-                          ? _buildEmptyState(isEng, cardColor, textColor, subTextColor) 
-                          : ListView.builder(
-                              shrinkWrap: true, 
-                              physics: const NeverScrollableScrollPhysics(), 
-                              padding: const EdgeInsets.only(bottom: 80, top: 8), 
-                              itemCount: filteredTasks.length,
-                              itemBuilder: (context, index) {
-                                final cv = filteredTasks[index];
-                                return ItemCongViecWidget(
-                                  congViec: cv,
-                                  onDoiTrangThai: (val) { cv.trangThai = val == true ? 1 : 0; provider.capNhatCongViec(cv); },
-                                  onChon: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ManHinhChiTiet(congViec: cv))),
-                                );
-                              },
-                            ),
+
+                        // --- HIỂN THỊ DANH SÁCH THEO TỪNG NHÓM ---
+                        if (groupQuaHan.isEmpty && groupHomNay.isEmpty && groupNgayMai.isEmpty && groupSapToi.isEmpty && groupKhongNgay.isEmpty)
+                          _buildEmptyState(isEng, cardColor, textColor, subTextColor)
+                        else ...[
+                          _buildTaskGroup(groupQuaHan, isEng ? "Overdue / Missed" : "Đã bỏ qua / Quá hạn", Colors.redAccent, _keyQuaHan, 'QuaHan', provider),
+                          _buildTaskGroup(groupHomNay, isEng ? "Today" : "Hôm nay", Colors.green, _keyHomNay, 'HomNay', provider),
+                          _buildTaskGroup(groupNgayMai, isEng ? "Tomorrow" : "Ngày mai", Colors.blue, null, 'NgayMai', provider),
+                          _buildTaskGroup(groupSapToi, isEng ? "Upcoming" : "Sắp tới", Colors.purple, null, 'SapToi', provider),
+                          _buildTaskGroup(groupKhongNgay, isEng ? "No Date" : "Chưa lên lịch", Colors.grey, null, 'KhongNgay', provider),
+                          const SizedBox(height: 80),
+                        ]
                       ],
                     ),
                   ),
@@ -397,51 +423,105 @@ class _TrangChuViewState extends State<TrangChuView> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManHinhNhapLieu())),
-        backgroundColor: Colors.blue.shade600, 
-        elevation: 6, 
+        backgroundColor: Colors.blue.shade600, elevation: 6,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.add, color: Colors.white, size: 32),
       ),
     );
   }
 
-  Widget _buildTrangThaiCham(Color color, String text) {
-    return Row(
-      children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)), 
-        const SizedBox(width: 6), 
-        Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12))
-      ]
+  // --- WIDGET DÒNG GẠCH ĐẦU DÒNG CÓ THỂ BẤM ĐƯỢC ---
+  Widget _buildClickableBullet({required String text, required Color color, required bool isActive, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.white.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          padding: EdgeInsets.only(right: 8, left: isActive ? 6 : 0), 
+          child: Text(text, style: TextStyle(color: color, fontSize: 13, fontWeight: isActive ? FontWeight.bold : FontWeight.w600)),
+        ),
+      ),
     );
+  }
+
+  // --- WIDGET RENDER NHÓM CÔNG VIỆC CÓ LÀM MỜ ---
+  Widget _buildTaskGroup(List<CongViec> tasks, String title, Color titleColor, GlobalKey? key, String groupID, QuanLyCongViecProvider provider) {
+    if (tasks.isEmpty) return const SizedBox(); 
+
+    // 🔥 Logic Hiệu ứng ánh sáng: Nếu đang highlight 1 mục mà mục này không khớp -> Làm mờ (0.3). Ngược lại sáng (1.0)
+    double opacity = (_mucDangHighlight == 'All' || _mucDangHighlight == groupID) ? 1.0 : 0.3;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 300),
+      opacity: opacity,
+      child: Column(
+        key: key, 
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 20, bottom: 10),
+            child: Row(
+              children: [
+                Icon(Icons.circle, size: 10, color: titleColor),
+                const SizedBox(width: 8),
+                Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: titleColor)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: titleColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                  child: Text("${tasks.length}", style: TextStyle(color: titleColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                )
+              ],
+            ),
+          ),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: tasks.length,
+            itemBuilder: (context, index) {
+              final cv = tasks[index];
+              return ItemCongViecWidget(
+                congViec: cv,
+                onDoiTrangThai: (val) { 
+                  cv.trangThai = val == true ? 1 : 0; 
+                  provider.capNhatCongViec(cv); 
+                },
+                onChon: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ManHinhChiTiet(congViec: cv))),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrangThaiCham(Color color, String text) {
+    return Row(children: [
+      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)), 
+      const SizedBox(width: 6), Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12))
+    ]);
   }
 
   Widget _buildEmptyState(bool isEng, Color cardColor, Color textColor, Color subTextColor) {
     return Center(
       child: Container(
+        margin: const EdgeInsets.only(top: 40),
         padding: const EdgeInsets.all(32), 
-        decoration: BoxDecoration(
-          color: cardColor, 
-          borderRadius: BorderRadius.circular(24), 
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))]
-        ),
+        decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))]),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(width: 64, height: 64, decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.check_circle_outline, size: 32, color: Colors.blue.shade400)),
             const SizedBox(height: 16),
-            Text(
-              _tuKhoaTimKiem.isNotEmpty 
-                  ? (isEng ? "No tasks found" : "Không tìm thấy công việc nào") 
-                  : (isEng ? "No tasks yet" : "Chưa có công việc nào"), 
-              style: TextStyle(color: textColor, fontWeight: FontWeight.bold)
-            ),
+            Text(isEng ? "All caught up!" : "Hoàn thành xuất sắc!", style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
-            Text(
-              _tuKhoaTimKiem.isEmpty 
-                  ? (isEng ? "Tap + to create a new task" : "Hãy bấm dấu + để tạo mới") 
-                  : (isEng ? "Try a different keyword" : "Thử tìm kiếm với từ khóa khác"), 
-              style: TextStyle(color: subTextColor, fontSize: 12)
-            ),
+            Text(isEng ? "Tap + to create a new task" : "Bấm dấu + để thêm việc mới nhé", style: TextStyle(color: subTextColor, fontSize: 12)),
           ],
         ),
       ),

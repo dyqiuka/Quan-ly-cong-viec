@@ -1,13 +1,18 @@
+import 'package:btl/views/home/man_hinh_chinh.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; 
 
 import '../../providers/quan_ly_cong_viec_provider.dart';
 import '../../services/dich_vu_firebase.dart';
 import '../../services/ho_tro_sqlite.dart';
 import '../auth/man_hinh_dang_nhap.dart';
 import '../../providers/cai_dat_provider.dart';
+
+import 'man_hinh_ho_so.dart'; 
+import 'man_hinh_dashboard.dart'; 
 
 class ManHinhSettings extends StatefulWidget {
   const ManHinhSettings({Key? key}) : super(key: key);
@@ -17,9 +22,8 @@ class ManHinhSettings extends StatefulWidget {
 }
 
 class _ManHinhSettingsState extends State<ManHinhSettings> {
-  bool _isNotifEnabled = true;
-  bool _isReminderEnabled = true;
-  bool _isLoadingDelete = false; // Trạng thái quay vòng vòng khi đang xóa data
+  // Đã xóa bỏ dòng bool _isNotifEnabled = true; gây lỗi load lại tự bật
+  bool _isLoadingDelete = false; 
 
   // ── HÀM 1: ĐĂNG XUẤT ──
   void _xuLyDangXuat(bool isEng) async {
@@ -48,97 +52,182 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
     }
   }
 
-  // ── HÀM 2: XÓA TOÀN BỘ DỮ LIỆU & TÀI KHOẢN (DANGER ZONE) ──
-  void _xoaToanBoDuLieu(bool isEng, BuildContext context) {
-    TextEditingController passwordController = TextEditingController();
+  // ── HÀM 2: HIỂN THỊ MENU TÙY CHỌN XÓA ──
+  void _hienThiMenuXoaDuLieu(bool isEng, BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+                const SizedBox(height: 10),
+                Text(isEng ? "Select Deletion Option" : "Chọn kiểu xóa dữ liệu", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                ListTile(
+                  leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.blue.shade50, shape: BoxShape.circle), child: const Icon(Icons.calendar_month, color: Colors.blue)),
+                  title: Text(isEng ? "Delete tasks by specific date" : "Xóa công việc theo ngày đã chọn", style: const TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _chonNgayDeXoa(isEng, context);
+                  },
+                ),
+                ListTile(
+                  leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle), child: const Icon(Icons.delete_sweep, color: Colors.red)),
+                  title: Text(isEng ? "Delete ALL tasks" : "Xóa TOÀN BỘ công việc", style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _xacNhanXoaDuLieu(isEng, context, null); 
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    );
+  }
 
+  // ── HÀM 3: CHỌN NGÀY VÀ CHO XEM TRƯỚC DANH SÁCH VIỆC SẼ XÓA (ĐÃ SỬA LỖI MÙ TỊT) ──
+  Future<void> _chonNgayDeXoa(bool isEng, BuildContext context) async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: Colors.red.shade600)),
+        child: child!,
+      ),
+    );
+
+    if (picked != null && mounted) {
+      String strNgay = DateFormat('dd/MM/yyyy').format(picked);
+
+      // Lấy danh sách công việc hiện có từ Provider để lọc
+      final provider = Provider.of<QuanLyCongViecProvider>(context, listen: false);
+      final viecTrongNgay = provider.danhSachCongViec.where((cv) {
+        return (cv.ngayThucHien ?? '').contains(strNgay);
+      }).toList();
+
+      // Nếu ngày đó trống trơn
+      if (viecTrongNgay.isEmpty) {
+        _hienThongBao(isEng ? "No tasks found on $strNgay." : "Tuyệt vời! Ngày $strNgay không có việc nào để xóa cả.");
+        return;
+      }
+
+      // Hiện hộp thoại danh sách các việc sẽ bị xóa
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(isEng ? "Tasks on $strNgay" : "Công việc ngày $strNgay", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: viecTrongNgay.length,
+              itemBuilder: (c, i) => ListTile(
+                leading: const Icon(Icons.circle, size: 10, color: Colors.redAccent),
+                title: Text(viecTrongNgay[i].tieuDe, style: const TextStyle(fontSize: 14)),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(isEng ? "Cancel" : "Hủy", style: const TextStyle(color: Colors.grey))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.pop(ctx); // Đóng preview
+                _xacNhanXoaDuLieu(isEng, context, picked); // Tiếp tục gọi lệnh xóa
+              },
+              child: Text(isEng ? "Delete (${viecTrongNgay.length})" : "Xóa toàn bộ (${viecTrongNgay.length})", style: const TextStyle(color: Colors.white)),
+            )
+          ]
+        )
+      );
+    }
+  }
+
+  // ── HÀM 4: XÓA VÀ TỰ ĐỘNG LOAD LẠI TRANG (ĐÃ SỬA LỖI PHẢI THOÁT APP) ──
+  void _xacNhanXoaDuLieu(bool isEng, BuildContext context, DateTime? ngayXoa) {
+    String strNgay = ngayXoa != null ? DateFormat('dd/MM/yyyy').format(ngayXoa) : "";
+    
     showDialog(
       context: context,
-      barrierDismissible: false, // Bắt buộc phải bấm nút, không cho bấm ra ngoài
-      builder: (context) {
+      barrierDismissible: false,
+      builder: (contextDialog) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
               const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
               const SizedBox(width: 10),
-              Text(isEng ? "Delete Account" : "Xóa tài khoản", style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              Expanded(child: Text(isEng ? "Confirm Deletion" : "Xác nhận xóa", style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                isEng 
-                    ? "This action is irreversible. All your tasks will be permanently deleted from the cloud. Please enter your password to confirm."
-                    : "Hành động này không thể hoàn tác. Toàn bộ dữ liệu của bạn sẽ bị xóa vĩnh viễn khỏi hệ thống. Vui lòng nhập mật khẩu để xác nhận.",
-                style: const TextStyle(fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: isEng ? "Password" : "Mật khẩu",
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                ),
-              ),
-            ],
+          content: Text(
+            ngayXoa == null 
+              ? (isEng ? "Are you sure you want to permanently delete ALL tasks?" : "Bạn có chắc chắn muốn xóa vĩnh viễn TOÀN BỘ công việc không?")
+              : (isEng ? "Delete all tasks scheduled on $strNgay?" : "Bạn muốn xóa toàn bộ công việc trong ngày $strNgay?"),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text(isEng ? "Cancel" : "Hủy", style: const TextStyle(color: Colors.grey))),
+            TextButton(onPressed: () => Navigator.pop(contextDialog), child: Text(isEng ? "Cancel" : "Hủy", style: const TextStyle(color: Colors.grey))),
             StatefulBuilder(
-              builder: (context, setStateDialog) {
+              builder: (context, setStateBtn) {
                 return ElevatedButton(
                   onPressed: _isLoadingDelete ? null : () async {
-                    String pass = passwordController.text.trim();
-                    if (pass.isEmpty) {
-                      _hienThongBao(isEng ? "Please enter your password!" : "Vui lòng nhập mật khẩu!");
-                      return;
-                    }
-
-                    setStateDialog(() => _isLoadingDelete = true);
+                    setStateBtn(() => _isLoadingDelete = true);
 
                     try {
                       User? user = FirebaseAuth.instance.currentUser;
                       if (user != null) {
-                        // 1. Xác thực lại mật khẩu
-                        AuthCredential credential = EmailAuthProvider.credential(email: user.email!, password: pass);
-                        await user.reauthenticateWithCredential(credential);
+                        var taskCollection = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('tasks');
+                        var taskDocs = await taskCollection.get();
 
-                        // 2. Mật khẩu ĐÚNG -> Tiến hành xóa dữ liệu trên Firebase
-                        var taskDocs = await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('tasks').get();
-                        for (var doc in taskDocs.docs) {
-                          await doc.reference.delete();
+                        int count = 0;
+                        if (ngayXoa == null) {
+                          // 1. XÓA TẤT CẢ
+                          for (var doc in taskDocs.docs) { await doc.reference.delete(); }
+                          try { await HoTroSQLite().xoaTatCa(); } catch(e){} 
+                          count = taskDocs.docs.length;
+                        } else {
+                          // 2. XÓA THEO NGÀY
+                          for (var doc in taskDocs.docs) {
+                            String ngayThucHien = doc.data()['ngayThucHien'] ?? '';
+                            if (ngayThucHien.contains(strNgay)) {
+                              await doc.reference.delete();
+                              count++;
+                            }
+                          }
                         }
 
-                        // 3. Xóa dữ liệu trên SQLite (Máy hiện tại)
-                        await HoTroSQLite().xoaTatCa();
-
-                        // 4. Xóa luôn tài khoản Firebase Auth
-                        await user.delete();
-
                         if (mounted) {
-                          Navigator.pop(context); // Đóng hộp thoại
-                          _hienThongBao(isEng ? "Account deleted successfully." : "Đã xóa tài khoản và dữ liệu.");
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ManHinhDangNhap()));
+                          Navigator.pop(contextDialog); // Đóng popup
+                          _hienThongBao(isEng ? "Deleted $count tasks successfully." : "Đã xóa thành công $count công việc.");
+                          
+                          // 🔥 ĐÂY LÀ ĐOẠN F5 LẠI APP MÀ KHÔNG CẦN THOÁT RA VÀO LẠI 🔥
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ManHinhChinh()),
+                            (Route<dynamic> route) => false,
+                          );
                         }
                       }
                     } catch (e) {
-                      setStateDialog(() => _isLoadingDelete = false);
-                      _hienThongBao(isEng ? "Incorrect password. Please try again." : "Mật khẩu không đúng. Vui lòng thử lại.");
+                      _hienThongBao(isEng ? "Error deleting tasks." : "Có lỗi xảy ra khi xóa dữ liệu.");
+                    } finally {
+                      setStateBtn(() => _isLoadingDelete = false);
                     }
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                   child: _isLoadingDelete 
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(isEng ? "Delete Forever" : "Xóa vĩnh viễn", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      : Text(isEng ? "Delete" : "Xóa", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 );
               }
             ),
@@ -150,7 +239,7 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
 
   void _hienThongBao(String thongBao) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(thongBao), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), duration: const Duration(seconds: 3)),
+      SnackBar(content: Text(thongBao), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), duration: const Duration(seconds: 4)),
     );
   }
 
@@ -158,7 +247,7 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final userEmail = user?.email ?? "chua_dang_nhap@email.com";
-    final userName = userEmail.split('@').first;
+    final userName = user?.displayName ?? userEmail.split('@').first; 
 
     final caiDat = Provider.of<CaiDatProvider>(context);
     final isEng = caiDat.isEnglish;
@@ -197,44 +286,62 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                         children: [
                           Text(isEng ? "Settings" : "Cài đặt", style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
                           const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 30, backgroundColor: Colors.white24,
-                                backgroundImage: NetworkImage("https://ui-avatars.com/api/?name=$userName&background=random"),
+                          
+                          GestureDetector(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManHinhHoSo())),
+                            child: Container(
+                              color: Colors.transparent, 
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 30, backgroundColor: Colors.white24,
+                                    backgroundImage: user?.photoURL != null 
+                                        ? NetworkImage(user!.photoURL!)
+                                        : NetworkImage("https://ui-avatars.com/api/?name=$userName&background=random") as ImageProvider,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(userName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                        const SizedBox(height: 4),
+                                        Text(userEmail, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                                        const SizedBox(height: 4),
+                                        Text(isEng ? "$total tasks • $percent% done" : "$total công việc • hoàn thành $percent%", style: const TextStyle(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right, color: Colors.white70) 
+                                ],
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(userName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                                    const SizedBox(height: 4),
-                                    Text(userEmail, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                                    const SizedBox(height: 4),
-                                    Text(isEng ? "$total tasks • $percent% done" : "$total công việc • hoàn thành $percent%", style: const TextStyle(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              )
-                            ],
+                            ),
                           )
                         ],
                       ),
                     ),
+                    
                     Positioned(
                       top: 190, left: 20, right: 20,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 5))]),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildStatItem(total.toString(), isEng ? "Total" : "Tổng", isDark ? Colors.blue.shade300 : Colors.blue.shade700, textColor),
-                            Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.2)),
-                            _buildStatItem(active.toString(), isEng ? "Active" : "Đang làm", isDark ? Colors.orange.shade300 : Colors.orange.shade700, textColor),
-                            Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.2)),
-                            _buildStatItem(done.toString(), isEng ? "Done" : "Đã xong", isDark ? Colors.green.shade300 : Colors.green.shade700, textColor),
-                          ],
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManHinhDashboard())),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          decoration: BoxDecoration(
+                            color: cardColor, 
+                            borderRadius: BorderRadius.circular(16), 
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 5))]
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildStatItem(total.toString(), isEng ? "Total" : "Tổng", isDark ? Colors.blue.shade300 : Colors.blue.shade700, textColor),
+                              Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.2)),
+                              _buildStatItem(active.toString(), isEng ? "Active" : "Đang làm", isDark ? Colors.orange.shade300 : Colors.orange.shade700, textColor),
+                              Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.2)),
+                              _buildStatItem(done.toString(), isEng ? "Done" : "Đã xong", isDark ? Colors.green.shade300 : Colors.green.shade700, textColor),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -253,12 +360,12 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                       _buildSettingsCard(
                         cardColor: cardColor,
                         children: [
-                          _buildSwitchTile(
-                            icon: Icons.language, iconColor: Colors.teal, bgColor: Colors.teal.shade50,
-                            title: isEng ? "English" : "Tiếng Anh", subtitle: isEng ? "App language is set to English" : "Đang sử dụng Tiếng Việt", textColor: textColor,
-                            value: isEng, onChanged: (val) => caiDat.doiNgonNgu(val),
-                          ),
-                        ],
+                              _buildSwitchTile(
+                                icon: Icons.language, iconColor: Colors.teal, bgColor: Colors.teal.shade50,
+                                title: isEng ? "English" : "Tiếng Anh", subtitle: isEng ? "App language is set to English" : "Đang sử dụng Tiếng Việt", textColor: textColor,
+                                value: isEng, onChanged: (val) => caiDat.doiNgonNgu(val),
+                              ),
+                          ],
                       ),
                       const SizedBox(height: 24),
 
@@ -276,37 +383,32 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                       ),
                       const SizedBox(height: 24),
 
-                      // --- THÔNG BÁO ---
+                      // --- THÔNG BÁO (ĐÃ KẾT NỐI VỚI PROVIDER) ---
                       _buildSectionTitle(isEng ? "NOTIFICATIONS" : "THÔNG BÁO"),
                       _buildSettingsCard(
                         cardColor: cardColor,
                         children: [
                           _buildSwitchTile(
                             icon: Icons.notifications_active, iconColor: Colors.blue, bgColor: Colors.blue.shade50,
-                            title: isEng ? "Notifications" : "Thông báo ứng dụng", subtitle: isEng ? "Enabled for all tasks" : "Bật cho tất cả công việc", textColor: textColor,
-                            value: _isNotifEnabled, onChanged: (val) => setState(() => _isNotifEnabled = val),
-                          ),
-                          Divider(height: 1, indent: 60, color: Colors.grey.withOpacity(0.1)),
-                          _buildSwitchTile(
-                            icon: Icons.alarm, iconColor: Colors.purple, bgColor: Colors.purple.shade50,
-                            title: isEng ? "Daily Reminder" : "Nhắc nhở hàng ngày", subtitle: isEng ? "Every day at 09:00" : "Mỗi ngày vào lúc 09:00 sáng", textColor: textColor,
-                            value: _isReminderEnabled, onChanged: (val) => setState(() => _isReminderEnabled = val),
+                            title: isEng ? "App Notifications" : "Thông báo ứng dụng", subtitle: isEng ? "Allow task reminders" : "Cho phép app réo chuông báo đến hạn", textColor: textColor,
+                            value: caiDat.isNotifEnabled, // Đã lấy đúng trạng thái
+                            onChanged: (val) => caiDat.doiThongBao(val), // Đã lưu đúng trạng thái
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
 
-                      // --- DANGER ZONE (KHU VỰC NGUY HIỂM) ---
-                      _buildSectionTitle(isEng ? "DANGER ZONE" : "KHU VỰC NGUY HIỂM", isDanger: true),
+                      // --- QUẢN LÝ DỮ LIỆU ---
+                      _buildSectionTitle(isEng ? "DATA MANAGEMENT" : "QUẢN LÝ DỮ LIỆU", isDanger: true),
                       _buildSettingsCard(
                         cardColor: cardColor,
                         children: [
                           _buildActionTile(
-                            icon: Icons.delete_forever, iconColor: Colors.red, bgColor: Colors.red.shade50,
-                            title: isEng ? "Delete All Data & Account" : "Xóa toàn bộ Dữ liệu", 
-                            subtitle: isEng ? "Permanently delete your account" : "Xóa vĩnh viễn tài khoản và công việc", 
+                            icon: Icons.delete_outline, iconColor: Colors.red, bgColor: Colors.red.shade50,
+                            title: isEng ? "Delete Tasks" : "Xóa dữ liệu công việc", 
+                            subtitle: isEng ? "Delete all tasks or by specific date" : "Xóa toàn bộ hoặc xóa theo ngày bạn chọn", 
                             textColor: Colors.red,
-                            onTap: () => _xoaToanBoDuLieu(isEng, context), // 🔥 GỌI HÀM XÓA DỮ LIỆU
+                            onTap: () => _hienThiMenuXoaDuLieu(isEng, context), 
                           ),
                         ],
                       ),

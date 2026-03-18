@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart'; // 🔥 BẮT BUỘC IMPORT ĐỂ DÙNG kIsWeb
+
 import '../models/cong_viec.dart';
 import '../services/ho_tro_sqlite.dart';
 
@@ -9,59 +11,39 @@ class QuanLyCongViecProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
-  // ==========================================
-  // KHAI BÁO BIẾN TRẠNG THÁI
-  // ==========================================
   List<CongViec> _danhSachCongViec = [];
   bool _dangTaiDuLieu = false;
-  
   String _danhMucDangLoc = 'All'; 
 
-  // ==========================================
-  // GETTERS (LẤY DỮ LIỆU RA GIAO DIỆN)
-  // ==========================================
   List<CongViec> get danhSachCongViec => _danhSachCongViec;
   bool get dangTaiDuLieu => _dangTaiDuLieu;
   String get danhMucDangLoc => _danhMucDangLoc;
   String? get userId => _auth.currentUser?.uid;
 
-  // 🔥 LỌC VÀ SẮP XẾP DANH SÁCH THEO ĐỘ QUAN TRỌNG
+  // 🔥 LỌC VÀ SẮP XẾP DANH SÁCH
   List<CongViec> get danhSachHienThi {
     List<CongViec> ketQuaLoc;
-
-    // 1. Lọc theo danh mục trước
     if (_danhMucDangLoc == 'All') {
       ketQuaLoc = List.from(_danhSachCongViec); 
     } else {
       ketQuaLoc = _danhSachCongViec.where((cv) => cv.danhMuc == _danhMucDangLoc).toList();
     }
 
-    // 2. Sắp xếp danh sách đã lọc
     ketQuaLoc.sort((a, b) {
-      // Ưu tiên 1: Đẩy việc đã hoàn thành (trạng thái = 1) xuống cuối cùng
       if (a.trangThai != b.trangThai) {
         return a.trangThai.compareTo(b.trangThai); 
       }
-
-      // Ưu tiên 2: Tính điểm mức độ quan trọng
       int diemQuanTrong(String? mucDo) {
         if (mucDo == 'High') return 3;
         if (mucDo == 'Medium') return 2;
         if (mucDo == 'Low') return 1;
-        return 0; // Mặc định
+        return 0;
       }
-
-      // So sánh điểm: Điểm cao (High) sẽ xếp lên trên
       return diemQuanTrong(b.mucDoUuTien).compareTo(diemQuanTrong(a.mucDoUuTien));
     });
-
     return ketQuaLoc;
   }
 
-  // ==========================================
-  // CÁC HÀM XỬ LÝ LOGIC
-  // ==========================================
-  
   void thayDoiBoLoc(String danhMucMoi) {
     if (_danhMucDangLoc != danhMucMoi) {
       _danhMucDangLoc = danhMucMoi;
@@ -69,15 +51,18 @@ class QuanLyCongViecProvider with ChangeNotifier {
     }
   }
 
-  // 1. TẢI DỮ LIỆU TỪ MÁY (OFFLINE - Khởi tạo)
+  // 1. TẢI DỮ LIỆU TỪ MÁY (OFFLINE)
   Future<void> taiDuLieuTuSQLite() async {
     if (userId == null) return;
-    
+
+    // 🔥 CHỐNG CRASH TRÊN WEB: Trình duyệt không có SQLite
+    if (kIsWeb) return; 
+
     _danhSachCongViec = await _dbHelper.layDanhSach(userId!);
     notifyListeners();
   }
 
-  // 2. ĐỒNG BỘ TỪ MÂY VỀ MÁY (ONLINE - Chạy ngầm)
+  // 2. ĐỒNG BỘ TỪ MÂY VỀ MÁY
   Future<void> dongBoTuFirebaseVeMay() async {
     if (userId == null) return;
     
@@ -91,30 +76,36 @@ class QuanLyCongViecProvider with ChangeNotifier {
           .collection('tasks')
           .get();
       
-      await _dbHelper.xoaTatCa(); 
+      if (snapshot.docs.isNotEmpty) {
+        // 🔥 Chỉ xóa SQLite nếu KHÔNG PHẢI là Web
+        if (!kIsWeb) await _dbHelper.xoaTatCa(); 
 
-      List<CongViec> danhSachMoi = [];
+        List<CongViec> danhSachMoi = [];
+        for (var doc in snapshot.docs) {
+          CongViec cv = CongViec.fromMap(doc.id, doc.data());
+          cv.userId = userId; 
 
-      for (var doc in snapshot.docs) {
-        CongViec cv = CongViec.fromMap(doc.id, doc.data());
-        cv.userId = userId; 
-        await _dbHelper.themMoi(cv); 
-        danhSachMoi.add(cv);
+          // 🔥 Chỉ lưu vào SQLite nếu KHÔNG PHẢI là Web
+          if (!kIsWeb) await _dbHelper.themMoi(cv); 
+
+          danhSachMoi.add(cv);
+        }
+        _danhSachCongViec = danhSachMoi;
+      } else {
+        await taiDuLieuTuSQLite();
       }
-
-      _danhSachCongViec = danhSachMoi;
     } catch (e) {
       debugPrint("Lỗi đồng bộ: $e");
+      await taiDuLieuTuSQLite();
     } finally {
       _dangTaiDuLieu = false;
       notifyListeners();
     }
   }
 
-  // 3. THÊM MỚI (Cập nhật UI ngay lập tức)
+  // 3. THÊM MỚI
   Future<void> themMoiCongViec(CongViec congViec) async {
     if (userId == null) return;
-
     congViec.userId = userId;
     var docRef = _firestore.collection('users').doc(userId).collection('tasks').doc();
     congViec.maCongViec = docRef.id; 
@@ -122,7 +113,9 @@ class QuanLyCongViecProvider with ChangeNotifier {
     _danhSachCongViec.insert(0, congViec); 
     notifyListeners();
 
-    _dbHelper.themMoi(congViec); 
+    // 🔥 Chặn Web gọi SQLite
+    if (!kIsWeb) await _dbHelper.themMoi(congViec); 
+
     try {
       await docRef.set(congViec.toMap()); 
     } catch(e) {
@@ -130,7 +123,7 @@ class QuanLyCongViecProvider with ChangeNotifier {
     }
   }
 
-  // 4. CẬP NHẬT CÔNG VIỆC
+  // 4. CẬP NHẬT
   Future<void> capNhatCongViec(CongViec congViec) async {
     if (userId == null || congViec.maCongViec == null) return;
 
@@ -140,7 +133,9 @@ class QuanLyCongViecProvider with ChangeNotifier {
       notifyListeners(); 
     }
 
-    _dbHelper.capNhat(congViec);
+    // 🔥 Chặn Web gọi SQLite
+    if (!kIsWeb) await _dbHelper.capNhat(congViec);
+
     try {
       await _firestore
           .collection('users')
@@ -153,14 +148,16 @@ class QuanLyCongViecProvider with ChangeNotifier {
     }
   }
 
-  // 5. XÓA CÔNG VIỆC
+  // 5. XÓA
   Future<void> xoaCongViec(String id) async {
     if (userId == null) return;
 
     _danhSachCongViec.removeWhere((item) => item.maCongViec == id);
     notifyListeners();
 
-    _dbHelper.xoaBo(id);
+    // 🔥 Chặn Web gọi SQLite
+    if (!kIsWeb) await _dbHelper.xoaBo(id);
+
     try {
       await _firestore
           .collection('users')
