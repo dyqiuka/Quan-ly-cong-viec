@@ -9,7 +9,7 @@ import '../auth/man_hinh_dang_nhap.dart';
 import '../../providers/cai_dat_provider.dart';
 
 class ManHinhHoSo extends StatefulWidget {
-  const ManHinhHoSo({super.key}); // Đã tối ưu super.key
+  const ManHinhHoSo({super.key}); 
 
   @override
   State<ManHinhHoSo> createState() => _ManHinhHoSoState();
@@ -19,7 +19,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
   User? _user;
   final DichVuFirebase _dichVuFirebase = DichVuFirebase();
 
-  // Các biến để lưu thông tin mở rộng từ Database
   String _ngaySinh = "Chưa cập nhật";
   String _gioiTinh = "Chưa cập nhật";
 
@@ -30,7 +29,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
     _taiThongTinTuFirestore(); 
   }
 
-  // Hàm dịch giới tính nhúng nhanh
   String _hienThiGioiTinh(String gt, bool isEn) {
     if (gt == "Chưa cập nhật") return isEn ? "Not updated" : "Chưa cập nhật";
     if (!isEn) return gt;
@@ -40,7 +38,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
     return gt;
   }
 
-  // 1. HÀM TẢI THÔNG TIN TỪ FIRESTORE
   Future<void> _taiThongTinTuFirestore() async {
     if (_user == null) return;
     try {
@@ -56,7 +53,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
     }
   }
 
-  // 2. HÀM CẬP NHẬT LÊN FIRESTORE
   Future<void> _capNhatFirestore(String truong, String giaTri) async {
     if (_user == null) return;
     final isEn = context.read<CaiDatProvider>().isEnglish;
@@ -71,7 +67,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
     }
   }
 
-  // 3. ĐỔI TÊN
   void _doiTenNguoiDung() {
     final isEn = context.read<CaiDatProvider>().isEnglish;
     TextEditingController tenController = TextEditingController(text: _user?.displayName);
@@ -103,7 +98,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
     );
   }
 
-  // 4. CHỌN NGÀY SINH
   Future<void> _chonNgaySinh() async {
     final isEn = context.read<CaiDatProvider>().isEnglish;
     DateTime? pickedDate = await showDatePicker(
@@ -119,7 +113,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
     }
   }
 
-  // 5. CHỌN GIỚI TÍNH
   void _chonGioiTinh() {
     final isEn = context.read<CaiDatProvider>().isEnglish;
     showDialog(
@@ -138,7 +131,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
     );
   }
 
-  // 6. ĐỔI ẢNH ĐẠI DIỆN BẰNG LINK
   void _doiAnhDaiDien() {
     final isEn = context.read<CaiDatProvider>().isEnglish;
     TextEditingController linkAnhController = TextEditingController();
@@ -168,7 +160,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
     );
   }
 
-  // 7. ĐỔI MẬT KHẨU
   void _doiMatKhau() async {
     if (_user == null || _user?.email == null) return;
     final isEn = context.read<CaiDatProvider>().isEnglish;
@@ -248,11 +239,9 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
 
   @override
   Widget build(BuildContext context) {
-    // Lấy Ngôn ngữ & Dark Mode từ Provider
     final isEn = context.watch<CaiDatProvider>().isEnglish;
     final isDark = context.watch<CaiDatProvider>().isDarkMode;
 
-    // 🔥 Cấu hình màu sắc động
     final bgColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF0F4FF);
     final cardColor = isDark ? Colors.grey[850]! : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -277,7 +266,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // ── AVATAR TRÊN CÙNG ──
             Center(
               child: Stack(
                 alignment: Alignment.bottomRight,
@@ -301,17 +289,14 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
             ),
             const SizedBox(height: 30),
 
-            // ── THÔNG TIN CHI TIẾT ──
             Container(
               decoration: BoxDecoration(
                 color: cardColor,
                 borderRadius: BorderRadius.circular(20),
-                // Fix cảnh báo withOpacity -> withValues
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))]
               ),
               child: Column(
                 children: [
-                  // Tên
                   ListTile(
                     leading: const Icon(Icons.badge, color: Colors.blue),
                     title: Text(isEn ? "Full Name" : "Họ và tên", style: TextStyle(fontSize: 12, color: subtitleColor)),
@@ -324,7 +309,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
                   ),
                   Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
 
-                  // Gmail
                   ListTile(
                     leading: const Icon(Icons.email, color: Colors.redAccent),
                     title: Text("Gmail", style: TextStyle(fontSize: 12, color: subtitleColor)),
@@ -336,7 +320,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
                   ),
                   Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
 
-                  // Ngày sinh
                   ListTile(
                     leading: const Icon(Icons.cake, color: Colors.orange),
                     title: Text(isEn ? "Date of Birth" : "Ngày sinh", style: TextStyle(fontSize: 12, color: subtitleColor)),
@@ -349,7 +332,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
                   ),
                   Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
 
-                  // Giới tính
                   ListTile(
                     leading: const Icon(Icons.people, color: Colors.green),
                     title: Text(isEn ? "Gender" : "Giới tính", style: TextStyle(fontSize: 12, color: subtitleColor)),
@@ -366,7 +348,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
 
             const SizedBox(height: 30),
 
-            // ── BẢO MẬT & TÀI KHOẢN ──
             Container(
               decoration: BoxDecoration(
                 color: cardColor,
@@ -387,7 +368,6 @@ class _ManHinhHoSoState extends State<ManHinhHoSo> {
 
             const SizedBox(height: 30),
 
-            // ── NÚT ĐĂNG XUẤT ──
             SizedBox(
               width: double.infinity,
               height: 55,

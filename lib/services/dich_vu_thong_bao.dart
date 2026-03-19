@@ -3,7 +3,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:io' show Platform; 
 import 'dart:async';
-import 'package:flutter/foundation.dart'; // 🔥 IMPORT THƯ VIỆN ĐỂ NHẬN DIỆN WEB
+import 'package:flutter/foundation.dart';
 
 class DichVuThongBao {
   static final DichVuThongBao _instance = DichVuThongBao._internal();
@@ -17,7 +17,6 @@ class DichVuThongBao {
   static String? veChoXuLy;
 
   Future<void> khoiTao() async {
-    // 🔥 CHỐN CRASH TRÊN WEB: Nếu chạy trên trình duyệt thì bỏ qua toàn bộ hàm này
     if (kIsWeb) {
       debugPrint("Đang chạy trên Web -> Bỏ qua khởi tạo Local Notifications.");
       return; 
@@ -50,7 +49,6 @@ class DichVuThongBao {
       },
     );
 
-    // 🔥 Sửa lỗi gọi Platform trên Web (Dù đã chặn ở trên, nhưng viết thế này sẽ an toàn tuyệt đối)
     if (!kIsWeb && Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
           _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -62,7 +60,7 @@ class DichVuThongBao {
   }
 
   Future<void> hienThongBaoNgay({required String title, required String body}) async {
-    if (kIsWeb) return; // 🔥 Không chạy trên Web
+    if (kIsWeb) return; 
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'kenh_test_nhanh', 
@@ -85,7 +83,7 @@ class DichVuThongBao {
   }
   
   Future<void> henGioThongBao({required int id, required String title, required String body, required DateTime thoiGian, String? payload}) async {
-    if (kIsWeb) return; // 🔥 Không chạy trên Web
+    if (kIsWeb) return; 
 
     if (thoiGian.isBefore(DateTime.now())) return;
 
@@ -113,12 +111,12 @@ class DichVuThongBao {
   }
 
   Future<void> huyThongBao(int id) async {
-    if (kIsWeb) return; // 🔥 Không chạy trên Web
+    if (kIsWeb) return; 
     await _notificationsPlugin.cancel(id: id);
   }
 
   Future<void> huyTatCaThongBao() async {
-    if (kIsWeb) return; // 🔥 Không chạy trên Web
+    if (kIsWeb) return; 
     await _notificationsPlugin.cancelAll();
   }
 }

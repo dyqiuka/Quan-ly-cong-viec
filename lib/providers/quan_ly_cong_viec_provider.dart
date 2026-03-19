@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart'; // 🔥 BẮT BUỘC IMPORT ĐỂ DÙNG kIsWeb
+import 'package:flutter/foundation.dart'; 
 
 import '../models/cong_viec.dart';
 import '../services/ho_tro_sqlite.dart';
@@ -20,7 +20,6 @@ class QuanLyCongViecProvider with ChangeNotifier {
   String get danhMucDangLoc => _danhMucDangLoc;
   String? get userId => _auth.currentUser?.uid;
 
-  // 🔥 LỌC VÀ SẮP XẾP DANH SÁCH
   List<CongViec> get danhSachHienThi {
     List<CongViec> ketQuaLoc;
     if (_danhMucDangLoc == 'All') {
@@ -51,18 +50,14 @@ class QuanLyCongViecProvider with ChangeNotifier {
     }
   }
 
-  // 1. TẢI DỮ LIỆU TỪ MÁY (OFFLINE)
   Future<void> taiDuLieuTuSQLite() async {
     if (userId == null) return;
-
-    // 🔥 CHỐNG CRASH TRÊN WEB: Trình duyệt không có SQLite
     if (kIsWeb) return; 
 
     _danhSachCongViec = await _dbHelper.layDanhSach(userId!);
     notifyListeners();
   }
 
-  // 2. ĐỒNG BỘ TỪ MÂY VỀ MÁY
   Future<void> dongBoTuFirebaseVeMay() async {
     if (userId == null) return;
     
@@ -77,7 +72,6 @@ class QuanLyCongViecProvider with ChangeNotifier {
           .get();
       
       if (snapshot.docs.isNotEmpty) {
-        // 🔥 Chỉ xóa SQLite nếu KHÔNG PHẢI là Web
         if (!kIsWeb) await _dbHelper.xoaTatCa(); 
 
         List<CongViec> danhSachMoi = [];
@@ -85,7 +79,6 @@ class QuanLyCongViecProvider with ChangeNotifier {
           CongViec cv = CongViec.fromMap(doc.id, doc.data());
           cv.userId = userId; 
 
-          // 🔥 Chỉ lưu vào SQLite nếu KHÔNG PHẢI là Web
           if (!kIsWeb) await _dbHelper.themMoi(cv); 
 
           danhSachMoi.add(cv);
@@ -103,7 +96,6 @@ class QuanLyCongViecProvider with ChangeNotifier {
     }
   }
 
-  // 3. THÊM MỚI
   Future<void> themMoiCongViec(CongViec congViec) async {
     if (userId == null) return;
     congViec.userId = userId;
@@ -113,7 +105,6 @@ class QuanLyCongViecProvider with ChangeNotifier {
     _danhSachCongViec.insert(0, congViec); 
     notifyListeners();
 
-    // 🔥 Chặn Web gọi SQLite
     if (!kIsWeb) await _dbHelper.themMoi(congViec); 
 
     try {
@@ -123,7 +114,6 @@ class QuanLyCongViecProvider with ChangeNotifier {
     }
   }
 
-  // 4. CẬP NHẬT
   Future<void> capNhatCongViec(CongViec congViec) async {
     if (userId == null || congViec.maCongViec == null) return;
 
@@ -133,7 +123,6 @@ class QuanLyCongViecProvider with ChangeNotifier {
       notifyListeners(); 
     }
 
-    // 🔥 Chặn Web gọi SQLite
     if (!kIsWeb) await _dbHelper.capNhat(congViec);
 
     try {
@@ -148,14 +137,12 @@ class QuanLyCongViecProvider with ChangeNotifier {
     }
   }
 
-  // 5. XÓA
   Future<void> xoaCongViec(String id) async {
     if (userId == null) return;
 
     _danhSachCongViec.removeWhere((item) => item.maCongViec == id);
     notifyListeners();
 
-    // 🔥 Chặn Web gọi SQLite
     if (!kIsWeb) await _dbHelper.xoaBo(id);
 
     try {

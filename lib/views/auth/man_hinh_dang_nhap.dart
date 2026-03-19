@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:rive/rive.dart'; 
+import 'package:rive/rive.dart' hide LinearGradient, Image; 
 
 import '../../services/dich_vu_firebase.dart';
 import '../../providers/cai_dat_provider.dart';
@@ -24,7 +24,6 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
   bool _anMatKhau = true; 
   bool _dangTai = false; 
 
-  // 🔥 Rive Controllers
   StateMachineController? _controller;
   SMIInput<bool>? _isChecking;
   SMIInput<bool>? _isHandsUp;
@@ -54,7 +53,6 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
     }
   }
 
-  // 🔥 HÀM CHUYỂN TRANG HIỆU ỨNG TRƯỢT (SLIDE)
   void _chuyenTrangVoiHieuUngKeo() {
     if (!mounted) return;
     Navigator.pushReplacement(
@@ -76,14 +74,13 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
     );
   }
 
-  // 🔥 1. HÀM XỬ LÝ ĐĂNG NHẬP
   void _xuLyDangNhap() async {
     final isEn = context.read<CaiDatProvider>().isEnglish;
 
     if (_formKey.currentState!.validate()) {
       setState(() => _dangTai = true); 
       _isHandsUp?.value = false;
-      
+
       try {
         await _dichVuFirebase.dangNhapEmailMatKhau(
           _emailController.text.trim(),
@@ -94,6 +91,8 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
 
         _success?.fire(); 
         await Future.delayed(const Duration(milliseconds: 800));
+
+        if (!mounted) return;
 
         setState(() => _dangTai = false);
         
@@ -110,14 +109,13 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.red,
-            content: Text(isEn ? "Login failed!" : "Lỗi đăng nhập: Sai email hoặc mật khẩu!")
+            content: Text(isEn ? "Login failed! Please check your credentials." : "Lỗi đăng nhập: Sai email hoặc mật khẩu!")
           )
         );
       }
     }
   }
 
-  // 🔥 2. HÀM XỬ LÝ ĐĂNG NHẬP GOOGLE
   void _xuLyDangNhapGoogle() async {
     final isEn = context.read<CaiDatProvider>().isEnglish;
     setState(() => _dangTai = true);
@@ -150,7 +148,6 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
     }
   }
 
-  // 🔥 3. HỘP THOẠI QUÊN MẬT KHẨU
   void _hienThiHopThoaiQuenMatKhau() {
     final isEn = context.read<CaiDatProvider>().isEnglish;
     final isDark = context.read<CaiDatProvider>().isDarkMode;
@@ -160,6 +157,7 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           isEn ? "Reset Password" : "Khôi phục mật khẩu", 
           style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)
@@ -168,7 +166,7 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isEn ? "Enter your email" : "Nhập email của bạn",
+              isEn ? "Enter your email address" : "Nhập địa chỉ email của bạn",
               style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.grey[700]),
             ),
             const SizedBox(height: 15),
@@ -177,8 +175,15 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
               keyboardType: TextInputType.emailAddress,
               style: TextStyle(color: isDark ? Colors.white : Colors.black),
               decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[400]!)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[400]!)
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2)
+                ),
               ),
             ),
           ],
@@ -189,19 +194,24 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
             child: Text(isEn ? "Cancel" : "Hủy", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey))
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade600),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+            ),
             onPressed: () async {
-              String email = emailResetController.text.trim();
-              if (email.isNotEmpty) {
+              String input = emailResetController.text.trim();
+              if (input.isNotEmpty && input.contains('@')) {
                 try {
-                  await _dichVuFirebase.quenMatKhau(email);
+                  await _dichVuFirebase.quenMatKhau(input);
                   if (!context.mounted) return;
                   Navigator.pop(context); 
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.green, content: Text(isEn ? "Sent!" : "Đã gửi!")));
                 } catch (e) {
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.red, content: Text("Error!")));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.red, content: Text("Error!")));
                 }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.orange, content: Text(isEn ? "Invalid email!" : "Email không hợp lệ!")));
               }
             },
             child: Text(isEn ? "Send" : "Gửi", style: const TextStyle(color: Colors.white)),
@@ -211,180 +221,261 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
     );
   }
 
-  // 🔥 4. GIAO DIỆN CHÍNH
   @override
   Widget build(BuildContext context) {
     final isEn = context.watch<CaiDatProvider>().isEnglish;
     final isDark = context.watch<CaiDatProvider>().isDarkMode;
 
-    final bgColor = isDark ? const Color(0xFF121212) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final inputFill = isDark ? Colors.grey[900] : Colors.grey.shade50;
-    final inputBorder = isDark ? Colors.grey.shade800 : Colors.grey.shade300;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final inputFill = isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade50;
+    final inputBorder = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
 
     return Scaffold(
-      backgroundColor: bgColor, 
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          Row(
-            children: [
-              Text("VN", style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 12)),
-              Switch(
-                value: isEn,
-                activeThumbColor: Colors.blue, 
-                onChanged: (value) => context.read<CaiDatProvider>().toggleLanguage(),
-              ),
-              Text("EN", style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 12)),
-            ],
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark 
+              ? [const Color(0xFF121212), const Color(0xFF1A1A2E)] 
+              : [Colors.blue.shade50, Colors.white],
           ),
-          const SizedBox(width: 10),
-          Row(
+        ),
+        child: SafeArea(
+          child: Stack(
             children: [
-              Icon(Icons.light_mode, color: isDark ? Colors.grey : Colors.orange, size: 20),
-              Switch(
-                value: isDark,
-                activeThumbColor: Colors.blue, 
-                onChanged: (value) => context.read<CaiDatProvider>().toggleTheme(),
-              ),
-              Icon(Icons.dark_mode, color: isDark ? Colors.blue.shade200 : Colors.grey, size: 20),
-            ],
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
-
-      body: SafeArea(
-        child: Center( 
-          child: SingleChildScrollView( 
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: 180,
-                    child: RiveAnimation.asset(
-                      'assets/rive/520-990-teddy-login-screen.riv',
-                      onInit: _onRiveInit,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  Text(
-                    isEn ? "LOGIN" : "ĐĂNG NHẬP", 
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: isDark ? Colors.blue.shade300 : Colors.blue.shade700)
-                  ),
-                  const SizedBox(height: 30),
-                  
-                  // Ô nhập Email
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    style: TextStyle(color: textColor),
-                    onTap: () {
-                      _isHandsUp?.value = false;
-                      _isChecking?.value = true;
-                    },
-                    decoration: InputDecoration(
-                      labelText: "Email",
-                      labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700]),
-                      prefixIcon: Icon(Icons.email, color: isDark ? Colors.grey[400] : Colors.grey),
-                      filled: true,
-                      fillColor: inputFill,
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: inputBorder)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.blue.shade400, width: 2)),
-                    ),
-                    validator: (value) => value!.isEmpty ? (isEn ? "Enter email" : "Vui lòng nhập email") : null,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Ô nhập Mật khẩu 
-                  TextFormField(
-                    controller: _matKhauController,
-                    obscureText: _anMatKhau, 
-                    style: TextStyle(color: textColor),
-                    onTap: () {
-                      _isChecking?.value = false;
-                      _isHandsUp?.value = true; // 🔥 Gấu che mắt ngay lập tức
-                    },
-                    decoration: InputDecoration(
-                      labelText: isEn ? "Password" : "Mật khẩu",
-                      labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700]),
-                      prefixIcon: Icon(Icons.lock, color: isDark ? Colors.grey[400] : Colors.grey),
-                      filled: true,
-                      fillColor: inputFill,
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: inputBorder)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.blue.shade400, width: 2)),
-                      suffixIcon: IconButton(
-                        icon: Icon(_anMatKhau ? Icons.visibility_off : Icons.visibility, color: isDark ? Colors.grey[400] : Colors.grey),
-                        onPressed: () => setState(() => _anMatKhau = !_anMatKhau),
-                      ),
-                    ),
-                    validator: (value) => value!.isEmpty ? (isEn ? "Enter password" : "Vui lòng nhập mật khẩu") : null,
-                  ),
-                  
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _hienThiHopThoaiQuenMatKhau,
-                      child: Text(isEn ? "Forgot password?" : "Quên mật khẩu?", style: TextStyle(color: isDark ? Colors.blue.shade300 : Colors.blue)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: _dangTai ? null : _xuLyDangNhap,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade600,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      child: _dangTai 
-                          ? const CircularProgressIndicator(color: Colors.white) 
-                          : Text(isEn ? "Sign In" : "Đăng Nhập", style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.g_mobiledata, size: 36, color: Colors.red),
-                      label: Text(
-                        isEn ? "Sign in with Google" : "Đăng nhập bằng Google", 
-                        style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.w600)
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: inputBorder),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-                      ),
-                      onPressed: _dangTai ? null : _xuLyDangNhapGoogle,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  Row(
+              Center( 
+                child: SingleChildScrollView( 
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(isEn ? "Don't have an account?" : "Chưa có tài khoản?", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.black87)),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => const ManHinhDangKy()));
-                        },
-                        child: Text(isEn ? "Register now" : "Đăng ký ngay", style: TextStyle(color: isDark ? Colors.blue.shade300 : Colors.blue, fontWeight: FontWeight.bold)),
+                      Container(
+                        height: 160,
+                        width: 160,
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark ? Colors.black54 : Colors.blue.withValues(alpha: 0.15),
+                              blurRadius: 25,
+                              offset: const Offset(0, 10),
+                            )
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: RiveAnimation.asset(
+                            'assets/rive/520-990-teddy-login-screen.riv',
+                            onInit: _onRiveInit,
+                            fit: BoxFit.cover, 
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      Text(
+                        isEn ? "WELCOME BACK" : "CHÀO MỪNG", 
+                        style: TextStyle(
+                          fontSize: 26, 
+                          fontWeight: FontWeight.w900, 
+                          letterSpacing: 1.2,
+                          color: isDark ? Colors.blue.shade300 : Colors.blue.shade800
+                        )
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isEn ? "Sign in to continue" : "Đăng nhập để tiếp tục",
+                        style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 32),
+                      
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark ? Colors.black38 : Colors.grey.withValues(alpha: 0.1),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            )
+                          ],
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                style: TextStyle(color: textColor),
+                                onTap: () {
+                                  _isHandsUp?.value = false;
+                                  _isChecking?.value = true;
+                                },
+                                decoration: InputDecoration(
+                                  labelText: "Email",
+                                  labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                  prefixIcon: Icon(Icons.email_outlined, color: isDark ? Colors.grey[400] : Colors.grey),
+                                  filled: true,
+                                  fillColor: inputFill,
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: inputBorder)),
+                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.blue.shade400, width: 2)),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) return isEn ? "Enter email" : "Vui lòng nhập email";
+                                  if (!value.contains('@')) return isEn ? "Invalid email format" : "Định dạng email không hợp lệ";
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 20),
+
+                              TextFormField(
+                                controller: _matKhauController,
+                                obscureText: _anMatKhau, 
+                                style: TextStyle(color: textColor),
+                                onTap: () {
+                                  _isChecking?.value = false;
+                                  _isHandsUp?.value = true; 
+                                },
+                                decoration: InputDecoration(
+                                  labelText: isEn ? "Password" : "Mật khẩu",
+                                  labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                  prefixIcon: Icon(Icons.lock_outline, color: isDark ? Colors.grey[400] : Colors.grey),
+                                  filled: true,
+                                  fillColor: inputFill,
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: inputBorder)),
+                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.blue.shade400, width: 2)),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(_anMatKhau ? Icons.visibility_off : Icons.visibility, color: isDark ? Colors.grey[400] : Colors.grey),
+                                    onPressed: () => setState(() => _anMatKhau = !_anMatKhau),
+                                  ),
+                                ),
+                                validator: (value) => value!.isEmpty ? (isEn ? "Enter password" : "Vui lòng nhập mật khẩu") : null,
+                              ),
+                              
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: _hienThiHopThoaiQuenMatKhau,
+                                  child: Text(isEn ? "Forgot password?" : "Quên mật khẩu?", style: TextStyle(color: isDark ? Colors.blue.shade300 : Colors.blue.shade700, fontWeight: FontWeight.w600)),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: ElevatedButton(
+                                  onPressed: _dangTai ? null : _xuLyDangNhap,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue.shade600,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    elevation: 4,
+                                    shadowColor: Colors.blue.withValues(alpha: 0.4),
+                                  ),
+                                  child: _dangTai 
+                                      ? const CircularProgressIndicator(color: Colors.white) 
+                                      : Text(isEn ? "Sign In" : "Đăng Nhập", style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+
+                              Row(
+                                children: [
+                                  Expanded(child: Divider(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300)),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    child: Text(isEn ? "OR" : "HOẶC", style: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey.shade500, fontSize: 12)),
+                                  ),
+                                  Expanded(child: Divider(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300)),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+
+                              SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.g_mobiledata, size: 36, color: Colors.red),
+                                  label: Text(
+                                    isEn ? "Sign in with Google" : "Đăng nhập bằng Google", 
+                                    style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.w600)
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: inputBorder),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+                                  ),
+                                  onPressed: _dangTai ? null : _xuLyDangNhapGoogle,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 30),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(isEn ? "Don't have an account?" : "Chưa có tài khoản?", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.black87)),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManHinhDangKy()));
+                            },
+                            child: Text(isEn ? "Register now" : "Đăng ký ngay", style: TextStyle(color: isDark ? Colors.blue.shade300 : Colors.blue.shade700, fontWeight: FontWeight.bold, fontSize: 16)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: cardColor.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      IconButton(
+                        icon: Icon(isDark ? Icons.dark_mode : Icons.light_mode, color: isDark ? Colors.blue.shade200 : Colors.orange),
+                        onPressed: () => context.read<CaiDatProvider>().toggleTheme(),
+                        tooltip: isEn ? "Toggle Theme" : "Đổi nền",
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Divider(height: 1, color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+                      ),
+                      IconButton(
+                        icon: Text(
+                          isEn ? "EN" : "VN", 
+                          style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14)
+                        ),
+                        onPressed: () => context.read<CaiDatProvider>().toggleLanguage(),
+                        tooltip: isEn ? "Change Language" : "Đổi ngôn ngữ",
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

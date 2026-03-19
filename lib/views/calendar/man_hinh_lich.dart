@@ -19,15 +19,13 @@ class ManHinhLich extends StatefulWidget {
 
 class _ManHinhLichState extends State<ManHinhLich> {
   DateTime _focusedDay = DateTime.now();
-  String _cheDoXem = 'Month'; // 'Day', 'Week', 'Month'
+  String _cheDoXem = 'Month'; 
 
-  // Hàm lọc công việc theo ngày
   List<CongViec> _layCongViecTheoNgay(List<CongViec> tatCaCongViec, DateTime ngay) {
     String chuoiNgayChon = DateFormat('dd/MM/yyyy').format(ngay);
     return tatCaCongViec.where((cv) => cv.ngayThucHien.contains(chuoiNgayChon)).toList();
   }
 
-  // Hàm điều hướng (< hoặc >)
   void _chuyenTrang(int huong) {
     setState(() {
       if (_cheDoXem == 'Month') {
@@ -62,7 +60,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
 
           return Column(
             children: [
-              // ── 1. HEADER XANH VỚI VÒNG TRÒN MỜ (Giống ảnh 5, 6, 7) ──
               Stack(
                 children: [
                   Container(
@@ -84,7 +81,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
                       ],
                     ),
                   ),
-                  // Vòng tròn trang trí mờ ở góc phải
                   Positioned(
                     right: -40, top: -20,
                     child: Container(width: 150, height: 150, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.05))),
@@ -92,7 +88,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
                 ],
               ),
 
-              // ── 2. THANH TOGGLE DAY | WEEK | MONTH ──
               Transform.translate(
                 offset: const Offset(0, -25),
                 child: Container(
@@ -125,7 +120,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
                 ),
               ),
 
-              // ── 3. THANH NAVIGATOR < THÁNG/TUẦN/NGÀY > ──
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
@@ -143,7 +137,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
               ),
               const SizedBox(height: 16),
 
-              // ── 4. PHẦN NỘI DUNG CHÍNH (THAY ĐỔI THEO TOGGLE) ──
               Expanded(
                 child: _cheDoXem == 'Month' 
                     ? _buildMonthView(tatCaCongViec, myLocale, cardColor, textColor, subTextColor, isDark)
@@ -155,7 +148,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
           );
         },
       ),
-      // NÚT FAB (+) ĐỂ THÊM CÔNG VIỆC
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManHinhNhapLieu())),
         backgroundColor: const Color(0xFF1E65FF),
@@ -166,7 +158,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
     );
   }
 
-  // Tiêu đề thanh Navigation
   String _layTieuDeDieuHuong(bool isEng) {
     if (_cheDoXem == 'Month') {
       return DateFormat('MMMM yyyy', isEng ? 'en_US' : 'vi_VN').format(_focusedDay);
@@ -182,7 +173,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
     }
   }
 
-  // GIAO DIỆN 1: LỊCH THÁNG (Month View)
   Widget _buildMonthView(List<CongViec> tatCaCongViec, String myLocale, Color cardColor, Color textColor, Color subTextColor, bool isDark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -192,12 +182,12 @@ class _ManHinhLichState extends State<ManHinhLich> {
         firstDay: DateTime.utc(2000, 1, 1),
         lastDay: DateTime.utc(2100, 12, 31),
         focusedDay: _focusedDay,
-        headerVisible: false, // Ẩn header gốc vì đã có Navigator riêng
+        headerVisible: false, 
         selectedDayPredicate: (day) => isSameDay(_focusedDay, day),
         onDaySelected: (selectedDay, focusedDay) {
           setState(() {
             _focusedDay = selectedDay;
-            _cheDoXem = 'Day'; // Tự động nhảy sang Day View khi bấm vào 1 ngày
+            _cheDoXem = 'Day'; 
           });
         },
         onPageChanged: (focusedDay) => _focusedDay = focusedDay,
@@ -217,7 +207,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
     );
   }
 
-  // GIAO DIỆN 2: LỊCH TUẦN (Week View - Dạng List ngang dọc như ảnh 6)
   Widget _buildWeekView(List<CongViec> tatCaCongViec, bool isEng, Color cardColor, Color textColor, Color subTextColor, bool isDark) {
     int offset = _focusedDay.weekday == 7 ? 0 : _focusedDay.weekday;
     DateTime startOfWeek = _focusedDay.subtract(Duration(days: offset));
@@ -260,7 +249,6 @@ class _ManHinhLichState extends State<ManHinhLich> {
     );
   }
 
-  // GIAO DIỆN 3: LỊCH NGÀY (Day View - Giống ảnh 7)
   Widget _buildDayView(List<CongViec> tatCaCongViec, bool isEng, Color cardColor, Color textColor, Color subTextColor, QuanLyCongViecProvider provider) {
     List<CongViec> danhSachCuaNgay = _layCongViecTheoNgay(tatCaCongViec, _focusedDay);
 

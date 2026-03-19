@@ -22,7 +22,6 @@ class _ManHinhChinhState extends State<ManHinhChinh> with SingleTickerProviderSt
   StreamSubscription? _thongBaoSubscription;
   late PageController _pageController;
 
-  // 🔥 Thêm AnimationController cho hiệu ứng "Chào sân" khi mới vào App
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -38,7 +37,6 @@ class _ManHinhChinhState extends State<ManHinhChinh> with SingleTickerProviderSt
     super.initState();
     _pageController = PageController(initialPage: _tabHienTai);
 
-    // 🔥 Cấu hình hiệu ứng vào trang (Entrance Animation)
     _entranceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -47,7 +45,7 @@ class _ManHinhChinhState extends State<ManHinhChinh> with SingleTickerProviderSt
     _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
         .animate(CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic));
     
-    _entranceController.forward(); // Bắt đầu chạy hiệu ứng
+    _entranceController.forward(); 
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<QuanLyCongViecProvider>(context, listen: false).dongBoTuFirebaseVeMay();
@@ -70,7 +68,7 @@ class _ManHinhChinhState extends State<ManHinhChinh> with SingleTickerProviderSt
   void dispose() {
     _thongBaoSubscription?.cancel();
     _pageController.dispose();
-    _entranceController.dispose(); // 🔥 Giải phóng bộ nhớ
+    _entranceController.dispose(); 
     super.dispose();
   }
 
@@ -131,7 +129,6 @@ class _ManHinhChinhState extends State<ManHinhChinh> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       
-      // 🔥 Bọc hiệu ứng trượt và mờ dần cho toàn bộ PageView
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SlideTransition(
@@ -165,7 +162,7 @@ class _ManHinhChinhState extends State<ManHinhChinh> with SingleTickerProviderSt
             _pageController.animateToPage(
               index,
               duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOutCubic, // Sử dụng đường cong mượt hơn
+              curve: Curves.easeInOutCubic,
             );
           },
           backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,

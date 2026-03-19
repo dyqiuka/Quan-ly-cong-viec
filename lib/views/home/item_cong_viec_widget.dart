@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// 🔥 IMPORT THƯ VIỆN ANIMATION
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart'; 
 
 import '../../models/cong_viec.dart';
@@ -10,8 +9,6 @@ class ItemCongViecWidget extends StatelessWidget {
   final CongViec congViec;
   final VoidCallback onChon;
   final Function(bool?) onDoiTrangThai;
-  
-  // 🔥 Thêm biến index để làm hiệu ứng trượt tuần tự
   final int index; 
 
   const ItemCongViecWidget({
@@ -19,7 +16,7 @@ class ItemCongViecWidget extends StatelessWidget {
     required this.congViec,
     required this.onChon,
     required this.onDoiTrangThai,
-    this.index = 0, // Đặt mặc định là 0 để không bị lỗi code cũ
+    this.index = 0, 
   });
 
   Color _layMauUuTien(String? mucDo) {
@@ -29,7 +26,6 @@ class ItemCongViecWidget extends StatelessWidget {
     return Colors.blue;
   }
 
-  // Helper dịch Danh mục
   String _dichDanhMuc(String? cat, bool isEn) {
     if (cat == null) return isEn ? 'Work' : 'Công việc';
     if (!isEn) return cat;
@@ -43,7 +39,6 @@ class ItemCongViecWidget extends StatelessWidget {
     }
   }
 
-  // Helper dịch Mức độ ưu tiên
   String _dichUuTien(String? pri, bool isEn) {
     if (pri == null) return '';
     if (!isEn) return pri;
@@ -70,7 +65,6 @@ class ItemCongViecWidget extends StatelessWidget {
     final textColor = isDark ? Colors.white : Colors.black87;
     final borderColor = isDark ? Colors.grey.shade800 : Colors.grey.shade300;
 
-    // Thiết kế giao diện gốc của thẻ (tách ra thành 1 biến để bọc Animation)
     Widget theCongViec = Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: daHoanThanh ? 0 : (isDark ? 0 : 2), 
@@ -114,7 +108,6 @@ class ItemCongViecWidget extends StatelessWidget {
                 runSpacing: 6, 
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  // HERO 2: DANH MỤC
                   Hero(
                     tag: 'danh_muc_${congViec.maCongViec}',
                     child: Material(
@@ -139,7 +132,6 @@ class ItemCongViecWidget extends StatelessWidget {
                     ),
                   ),
                   
-                  // HERO 3: ĐỘ ƯU TIÊN
                   if (!daHoanThanh && congViec.mucDoUuTien != null)
                     Hero(
                       tag: 'uu_tien_${congViec.maCongViec}',
@@ -162,7 +154,6 @@ class ItemCongViecWidget extends StatelessWidget {
               ),
               const SizedBox(height: 10), 
               
-              // HERO 1: TIÊU ĐỀ
               Hero(
                 tag: 'tieu_de_${congViec.maCongViec}', 
                 child: Material(
@@ -191,7 +182,6 @@ class ItemCongViecWidget extends StatelessWidget {
                     children: [
                       Icon(Icons.notifications_active_outlined, size: 18, color: daHoanThanh ? (isDark ? Colors.grey.shade700 : Colors.grey) : (isDark ? Colors.amber.shade400 : Colors.amber.shade700)), 
                       const SizedBox(width: 8),
-                      // 🔥 HERO 4: BỌC CHỮ NHẮC NHỞ
                       Expanded(
                         child: Hero(
                           tag: 'nhac_nho_text_${congViec.maCongViec}',
@@ -213,7 +203,6 @@ class ItemCongViecWidget extends StatelessWidget {
                   children: [
                     Icon(Icons.timer_off_outlined, size: 18, color: daHoanThanh ? (isDark ? Colors.grey.shade700 : Colors.grey) : (isDark ? Colors.blueGrey.shade300 : Colors.blueGrey)), 
                     const SizedBox(width: 8),
-                    // 🔥 HERO 5: BỌC CHỮ THỜI HẠN
                     Expanded(
                       child: Hero(
                         tag: 'thoi_han_text_${congViec.maCongViec}',
@@ -237,13 +226,12 @@ class ItemCongViecWidget extends StatelessWidget {
       ),
     );
 
-    // 🔥 TRẢ VỀ THẺ ĐÃ ĐƯỢC BỌC HIỆU ỨNG TRƯỢT LÊN
     return AnimationConfiguration.staggeredList(
-      position: index, // Dựa vào vị trí để trượt lần lượt
-      duration: const Duration(milliseconds: 500), // Thời gian trượt
+      position: index, 
+      duration: const Duration(milliseconds: 500), 
       child: SlideAnimation(
-        verticalOffset: 100.0, // Trượt từ dưới lên 80 pixel
-        child: FadeInAnimation( // Kết hợp hiệu ứng mờ ảo hiện dần
+        verticalOffset: 100.0, 
+        child: FadeInAnimation( 
           child: theCongViec,
         ),
       ),

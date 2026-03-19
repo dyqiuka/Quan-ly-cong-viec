@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+import 'dart:math' as math;
 
 import '../../providers/cai_dat_provider.dart';
 import '../../providers/quan_ly_cong_viec_provider.dart';
@@ -11,6 +13,7 @@ import '../task/man_hinh_chi_tiet.dart';
 import 'item_cong_viec_widget.dart';
 import '../settings/man_hinh_ho_so.dart';
 import 'thanh_tien_do_lua_widget.dart';
+import 'man_hinh_thong_bao.dart'; 
 
 class TrangChuView extends StatefulWidget {
   const TrangChuView({Key? key}) : super(key: key);
@@ -28,10 +31,14 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
   final List<String> _danhSachDanhMuc = ["All", "Học tập", "Công việc", "Cá nhân", "Sức khỏe", "Khác"];
 
   late AnimationController _pulseController;
+  Timer? _timer;
 
   final GlobalKey _keyQuaHan = GlobalKey();
   final GlobalKey _keyHomNay = GlobalKey();
   String _mucDangHighlight = 'All'; 
+  
+  static final Set<String> _cacViecDaBaoThuc = {}; 
+  static int _soThongBaoChuaXem = 0;
 
   @override
   void initState() {
@@ -40,10 +47,17 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
+
+    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _pulseController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -99,6 +113,29 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
     }
   }
 
+  bool _kiemTraDenGio(String timeStr) {
+    try {
+      if (timeStr.trim().isEmpty) return false;
+      if (timeStr.contains(' - ')) {
+        List<String> parts = timeStr.split(' - ');
+        List<String> timeParts = parts[0].split(':');
+        List<String> dateParts = parts[1].split('/');
+        
+        if (timeParts.length >= 2 && dateParts.length >= 3) {
+          int h = int.parse(timeParts[0].trim());
+          int m = int.parse(timeParts[1].trim());
+          int d = int.parse(dateParts[0].trim());
+          int mo = int.parse(dateParts[1].trim());
+          int y = int.parse(dateParts[2].trim());
+          
+          DateTime targetTime = DateTime(y, mo, d, h, m);
+          return DateTime.now().compareTo(targetTime) >= 0;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final caiDat = Provider.of<CaiDatProvider>(context);
@@ -120,19 +157,16 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
       body: Consumer<QuanLyCongViecProvider>(
         builder: (context, provider, child) {
           
-          // Lấy danh sách gốc từ Provider
           final rawTasks = provider.danhSachCongViec;
 
-          // 🔥 BƯỚC QUAN TRỌNG: SẮP XẾP THEO ĐỘ ƯU TIÊN (High -> Medium -> Low)
           List<CongViec> tasks = List.from(rawTasks);
           tasks.sort((a, b) {
             int getPriorityScore(String? mucDo) {
               if (mucDo == 'High') return 3;
               if (mucDo == 'Medium') return 2;
               if (mucDo == 'Low') return 1;
-              return 0; // Không có mức độ
+              return 0; 
             }
-            // Xếp giảm dần (Điểm cao nằm trên)
             return getPriorityScore(b.mucDoUuTien).compareTo(getPriorityScore(a.mucDoUuTien));
           });
 
@@ -140,37 +174,43 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
           final todayDate = DateTime(now.year, now.month, now.day);
           final tomorrowDate = todayDate.add(const Duration(days: 1));
 
-          // 1. DỮ LIỆU THỐNG KÊ (Cho khối Tiến độ ở trên)
           int viecHomNayTong = 0;
           int viecHomNayDaXong = 0;
           int viecBoQua = 0;
           int tongCon = tasks.where((t) => t.trangThai == 0).length;
 
-          // 2. DỮ LIỆU NHÓM (Chỉ chứa việc CHƯA LÀM)
           List<CongViec> groupQuaHan = [];
           List<CongViec> groupHomNay = [];
           List<CongViec> groupNgayMai = [];
           List<CongViec> groupSapToi = [];
           List<CongViec> groupKhongNgay = [];
       
-          // LỌC VÀ CHIA NHÓM
           for (var t in tasks) {
             DateTime? taskDate = _phanTichNgay(t.ngayThucHien.toString());
 
-            // --- BƯỚC 1: TÍNH THỐNG KÊ TRÊN HEADER (Đếm cả việc đã xong) ---
             if (taskDate != null) {
               DateTime nDate = DateTime(taskDate.year, taskDate.month, taskDate.day);
               if (t.trangThai == 0 && nDate.isBefore(todayDate)) viecBoQua++;
               if (nDate.isAtSameMomentAs(todayDate)) {
                 viecHomNayTong++;
-                if (t.trangThai == 1) viecHomNayDaXong++;
+                if (t.trangThai == 1) {
+                  viecHomNayDaXong++;
+                } else {
+                  if (t.thoiGianNhacNho != null && t.thoiGianNhacNho!.isNotEmpty) {
+                    if (_kiemTraDenGio(t.thoiGianNhacNho!)) {
+                      String idCongViec = t.maCongViec ?? t.tieuDe;
+                      if (!_cacViecDaBaoThuc.contains(idCongViec)) {
+                        _cacViecDaBaoThuc.add(idCongViec);
+                        _soThongBaoChuaXem++; 
+                      }
+                    }
+                  }
+                }
               }
             }
 
-            // --- BƯỚC 2: ẨN VIỆC ĐÃ XONG KHỎI TRANG CHỦ ---
             if (t.trangThai == 1) continue;
 
-            // --- BƯỚC 3: KIỂM TRA BỘ LỌC TÌM KIẾM ---
             bool passFilter = true;
             if (_danhMucDuocChon != 'All' && t.danhMuc != _danhMucDuocChon) passFilter = false;
             if (_tuKhoaTimKiem.isNotEmpty) {
@@ -178,7 +218,6 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
               if (!t.tieuDe.toLowerCase().contains(keyword) && !t.noiDung.toLowerCase().contains(keyword)) passFilter = false;
             }
 
-            // --- BƯỚC 4: ĐƯA VIỆC VÀO TỪNG NHÓM ---
             if (passFilter) {
               if (taskDate == null) {
                 groupKhongNgay.add(t);
@@ -200,13 +239,13 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
           int percentHomNay = viecHomNayTong > 0 ? ((viecHomNayDaXong / viecHomNayTong) * 100).round() : 0;
           double progressHomNay = viecHomNayTong > 0 ? (viecHomNayDaXong / viecHomNayTong) : 0.0;
           bool isFireActive = (viecHomNayTong > 0 && viecHomNayDaXong == viecHomNayTong);
+          bool canRungChuong = _soThongBaoChuaXem > 0;
 
           return SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
                 children: [
-                  // ── PHẦN HEADER ──
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
                     decoration: const BoxDecoration(
@@ -228,40 +267,14 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
                                   Text(ngayHienTai, style: const TextStyle(color: Colors.white70, fontSize: 14)),
                                   const SizedBox(height: 4),
                                   Text("${_layLoiChao(isEng)}, $tenNguoiDung 👋", style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 12),
-                                  
-                                  // 🔥 3 DÒNG THỐNG KÊ (BIẾN THÀNH NÚT BẤM CÓ TƯƠNG TÁC)
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildClickableBullet(
-                                        text: isEng ? "• Missed tasks: $viecBoQua" : "• Đã bỏ qua: $viecBoQua việc",
-                                        color: Colors.orangeAccent,
-                                        isActive: _mucDangHighlight == 'QuaHan',
-                                        onTap: () => _cuonDenMuc(_keyQuaHan, 'QuaHan'),
-                                      ),
-                                      _buildClickableBullet(
-                                        text: isEng ? "• Today's tasks: $viecHomNayTong" : "• Hôm nay cần làm: $viecHomNayTong việc",
-                                        color: Colors.greenAccent,
-                                        isActive: _mucDangHighlight == 'HomNay',
-                                        onTap: () => _cuonDenMuc(_keyHomNay, 'HomNay'),
-                                      ),
-                                      _buildClickableBullet(
-                                        text: isEng ? "• Total pending: $tongCon" : "• Tổng còn: $tongCon việc",
-                                        color: Colors.white,
-                                        isActive: _mucDangHighlight == 'All', 
-                                        onTap: () {
-                                          setState(() => _mucDangHighlight = 'All');
-                                        },
-                                      ),
-                                    ],
-                                  ),
                                 ],
                               ),
                             ),
                             Row(
                               children: [
                                 IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                   icon: Icon(_hienThanhTimKiem ? Icons.close : Icons.search, color: Colors.white),
                                   onPressed: () {
                                     setState(() {
@@ -273,25 +286,115 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
                                     });
                                   }
                                 ),
-                                GestureDetector(
-                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManHinhHoSo())),
-                                  child: Container(
-                                    margin: const EdgeInsets.only(left: 8),
-                                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                                    child: CircleAvatar(
-                                      radius: 16, backgroundColor: Colors.white.withOpacity(0.3),
-                                      backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-                                      child: user?.photoURL == null ? const Icon(Icons.person, color: Colors.white, size: 20) : null,
+                                const SizedBox(width: 16),
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    AnimatedBuilder(
+                                      animation: _pulseController,
+                                      builder: (context, child) {
+                                        double angle = canRungChuong 
+                                            ? math.sin(_pulseController.value * math.pi * 8) * 0.25 
+                                            : 0.0;
+                                        
+                                        double glow = canRungChuong 
+                                            ? 5.0 + (10.0 * _pulseController.value) 
+                                            : 0.0;
+
+                                        return Transform.rotate(
+                                          angle: angle,
+                                          alignment: Alignment.topCenter,
+                                          child: IconButton(
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            icon: Icon(
+                                              canRungChuong ? Icons.notifications_active : Icons.notifications_none, 
+                                              color: canRungChuong ? Colors.amberAccent : Colors.white,
+                                              size: 26,
+                                              shadows: canRungChuong 
+                                                ? [Shadow(color: Colors.amberAccent, blurRadius: glow)] 
+                                                : null,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                _soThongBaoChuaXem = 0; 
+                                              });
+                                              Navigator.push(context, MaterialPageRoute(builder: (_) => const ManHinhThongBao()));
+                                            },
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ),
+                                    if (canRungChuong)
+                                      Positioned(
+                                        right: -2,
+                                        top: -4,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.redAccent, 
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: const Color(0xFF1E40AF), width: 1.5)
+                                          ),
+                                          child: Text(
+                                            '$_soThongBaoChuaXem',
+                                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ],
                             )
                           ],
                         ),
                         const SizedBox(height: 24),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildClickableBullet(
+                                    text: isEng ? "• Missed tasks: $viecBoQua" : "• Đã bỏ qua: $viecBoQua việc",
+                                    color: Colors.orangeAccent,
+                                    isActive: _mucDangHighlight == 'QuaHan',
+                                    onTap: () => _cuonDenMuc(_keyQuaHan, 'QuaHan'),
+                                  ),
+                                  _buildClickableBullet(
+                                    text: isEng ? "• Today's tasks: $viecHomNayTong" : "• Hôm nay cần làm: $viecHomNayTong việc",
+                                    color: Colors.greenAccent,
+                                    isActive: _mucDangHighlight == 'HomNay',
+                                    onTap: () => _cuonDenMuc(_keyHomNay, 'HomNay'),
+                                  ),
+                                  _buildClickableBullet(
+                                    text: isEng ? "• Total pending: $tongCon" : "• Tổng còn: $tongCon việc",
+                                    color: Colors.white,
+                                    isActive: _mucDangHighlight == 'All', 
+                                    onTap: () {
+                                      setState(() => _mucDangHighlight = 'All');
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManHinhHoSo())),
+                              child: Container(
+                                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)),
+                                child: CircleAvatar(
+                                  radius: 64,
+                                  backgroundColor: Colors.white.withOpacity(0.3),
+                                  backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+                                  child: user?.photoURL == null ? const Icon(Icons.person, color: Colors.white, size: 64) : null,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
 
-                        // 🔥 KHỐI TIẾN ĐỘ HÔM NAY
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 500),
                           padding: const EdgeInsets.all(16),
@@ -348,7 +451,6 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
                     ),
                   ),
 
-                  // ── THANH TÌM KIẾM ──
                   if (_hienThanhTimKiem) Container(
                     padding: const EdgeInsets.all(16), color: cardColor,
                     child: TextField(
@@ -364,7 +466,6 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
                     ),
                   ),
 
-                  // ── DANH SÁCH CHIA NHÓM (GROUP BY DATE) ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -372,7 +473,6 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
                       children: [
                         const SizedBox(height: 20),
                         
-                        // --- CATEGORIES HORIZONTAL BAR ---
                         Row(
                           children: [
                             Text(isEng ? "Categories" : "Danh mục", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
@@ -401,7 +501,6 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
                         ),
                         const SizedBox(height: 10),
 
-                        // --- HIỂN THỊ DANH SÁCH THEO TỪNG NHÓM ---
                         if (groupQuaHan.isEmpty && groupHomNay.isEmpty && groupNgayMai.isEmpty && groupSapToi.isEmpty && groupKhongNgay.isEmpty)
                           _buildEmptyState(isEng, cardColor, textColor, subTextColor)
                         else ...[
@@ -430,7 +529,6 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
     );
   }
 
-  // --- WIDGET DÒNG GẠCH ĐẦU DÒNG CÓ THỂ BẤM ĐƯỢC ---
   Widget _buildClickableBullet({required String text, required Color color, required bool isActive, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
@@ -450,11 +548,9 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
     );
   }
 
-  // --- WIDGET RENDER NHÓM CÔNG VIỆC CÓ LÀM MỜ ---
   Widget _buildTaskGroup(List<CongViec> tasks, String title, Color titleColor, GlobalKey? key, String groupID, QuanLyCongViecProvider provider) {
     if (tasks.isEmpty) return const SizedBox(); 
 
-    // 🔥 Logic Hiệu ứng ánh sáng: Nếu đang highlight 1 mục mà mục này không khớp -> Làm mờ (0.3). Ngược lại sáng (1.0)
     double opacity = (_mucDangHighlight == 'All' || _mucDangHighlight == groupID) ? 1.0 : 0.3;
 
     return AnimatedOpacity(

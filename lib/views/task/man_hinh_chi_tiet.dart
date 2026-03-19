@@ -162,7 +162,6 @@ class ManHinhChiTiet extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       
-                      // 🔥 HERO 1: TIÊU ĐỀ
                       Expanded(
                         child: Hero(
                           tag: 'tieu_de_${itemMoi.maCongViec}', 
@@ -242,7 +241,6 @@ class ManHinhChiTiet extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         
-                        // 🔥 HERO 2: MỨC ĐỘ ƯU TIÊN
                         Hero(
                           tag: 'uu_tien_${itemMoi.maCongViec}',
                           child: Material(
@@ -281,7 +279,6 @@ class ManHinhChiTiet extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         
-                        // 🔥 HERO 3: DANH MỤC
                         Hero(
                           tag: 'danh_muc_${itemMoi.maCongViec}',
                           child: Material(
@@ -339,7 +336,6 @@ class ManHinhChiTiet extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           
-                          // 🔥 HERO 4: THỜI HẠN
                           Hero(
                             tag: 'thoi_han_text_${itemMoi.maCongViec}',
                             child: Material(
@@ -381,7 +377,6 @@ class ManHinhChiTiet extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             
-                            // 🔥 HERO 5: NHẮC NHỞ
                             Hero(
                               tag: 'nhac_nho_text_${itemMoi.maCongViec}',
                               child: Material(

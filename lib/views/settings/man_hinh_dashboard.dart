@@ -24,7 +24,6 @@ DateTime? phanTichNgay(String input) {
   }
 }
 
-// 🔥 ĐỔI THÀNH STATEFUL WIDGET ĐỂ XỬ LÝ THANH TÌM KIẾM
 class ManHinhDashboard extends StatefulWidget {
   const ManHinhDashboard({Key? key}) : super(key: key);
 
@@ -69,7 +68,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
         builder: (context, provider, child) {
           final tasks = provider.danhSachCongViec;
 
-          // ── KHỐI XỬ LÝ KHI NGƯỜI DÙNG TÌM KIẾM (HIỂN THỊ DANH SÁCH NGAY LẬP TỨC) ──
           if (_tuKhoaTimKiem.isNotEmpty) {
             final keyword = _tuKhoaTimKiem.toLowerCase();
             List<CongViec> searchResults = tasks.where((t) {
@@ -81,7 +79,7 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
                 _buildSearchBar(isEng, cardColor, textColor),
                 Expanded(
                   child: searchResults.isEmpty
-                      ? Center(child: Text(isEng ? "No tasks found" : "Không tìm thấy công việc", style: TextStyle(color: Colors.grey)))
+                      ? Center(child: Text(isEng ? "No tasks found" : "Không tìm thấy công việc", style: const TextStyle(color: Colors.grey)))
                       : ListView.builder(
                           physics: const BouncingScrollPhysics(),
                           itemCount: searchResults.length,
@@ -99,7 +97,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
             );
           }
 
-          // ── TÍNH TOÁN DỮ LIỆU KHI KHÔNG TÌM KIẾM (HIỂN THỊ DASHBOARD BÌNH THƯỜNG) ──
           int tong = tasks.length;
           int hoanThanh = tasks.where((t) => t.trangThai == 1).length;
           int dangLam = tasks.where((t) => t.trangThai == 0).length;
@@ -133,7 +130,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
             "Khác": tasks.where((t) => t.danhMuc == "Khác").length,
           };
 
-          // 🔥 LOGIC CỐ VẤN NĂNG SUẤT (THAY THẾ THANH TIẾN ĐỘ)
           String statusTitle;
           String statusSub;
           Color statusColor;
@@ -163,10 +159,7 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
 
           return Column(
             children: [
-              // Thanh tìm kiếm luôn nằm trên cùng
               _buildSearchBar(isEng, cardColor, textColor),
-
-              // Phần nội dung cuộn bên dưới
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -175,8 +168,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 10),
-
-                      // ── 1. THẺ CỐ VẤN NĂNG SUẤT (MỚI) ──
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
@@ -207,7 +198,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
                       ),
                       const SizedBox(height: 32),
 
-                      // ── 2. DẢI THỐNG KÊ HÔM NAY ──
                       Text(isEng ? "Today's Snapshot" : "Thống kê hôm nay", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
                       const SizedBox(height: 16),
                       SingleChildScrollView(
@@ -225,7 +215,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
                       ),
                       const SizedBox(height: 32),
 
-                      // ── 3. LƯỚI THẺ CHỈ SỐ TỔNG ──
                       Text(isEng ? "Overall Stats" : "Tổng quan", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
                       const SizedBox(height: 16),
                       Row(
@@ -245,7 +234,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
                       ),
                       const SizedBox(height: 36),
 
-                      // ── 4. THỐNG KÊ CHI TIẾT THEO DANH MỤC ──
                       Text(isEng ? "Tasks by Category" : "Phân bổ theo danh mục", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
                       const SizedBox(height: 16),
                       Container(
@@ -273,7 +261,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
     );
   }
 
-  // WIDGET THANH TÌM KIẾM DÙNG CHUNG CHÍNH (ĐẶT Ở ĐẦU TRANG)
   Widget _buildSearchBar(bool isEng, Color cardColor, Color textColor) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
@@ -302,7 +289,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
     );
   }
 
-  // WIDGET THẺ CHỈ SỐ
   Widget _buildStatCard({required String title, required String value, required IconData icon, required Color color, required Color cardColor, required Color textColor, VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap, borderRadius: BorderRadius.circular(20),
@@ -379,10 +365,6 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
     );
   }
 }
-
-// =========================================================================
-// 🔥 MÀN HÌNH DANH SÁCH TỪ DASHBOARD (GIỮ NGUYÊN SEARCH BAR CỦA NÓ)
-// =========================================================================
 
 class ManHinhDanhSachChiTiet extends StatefulWidget {
   final String tieuDe;

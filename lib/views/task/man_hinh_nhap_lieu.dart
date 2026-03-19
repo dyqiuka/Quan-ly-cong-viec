@@ -10,7 +10,7 @@ import '../../providers/cai_dat_provider.dart';
 class ManHinhNhapLieu extends StatefulWidget {
   final CongViec? congViec; 
 
-  const ManHinhNhapLieu({super.key, this.congViec}); // Đã tối ưu super.key
+  const ManHinhNhapLieu({super.key, this.congViec}); 
 
   @override
   State<ManHinhNhapLieu> createState() => _ManHinhNhapLieuState();
@@ -19,20 +19,17 @@ class ManHinhNhapLieu extends StatefulWidget {
 class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
   final _formKey = GlobalKey<FormState>();
   
-  // Controllers
   final TextEditingController _tieuDeController = TextEditingController();
   final TextEditingController _moTaController = TextEditingController();
 
-  // Biến thời gian cho Hạn chót (Thời gian hoàn thành)
   DateTime? _ngayChon;
   TimeOfDay? _gioChon;
 
-  // Biến thời gian cho Giờ nhắc nhở (Thời gian bắt đầu)
   DateTime? _ngayNhacNho;
   TimeOfDay? _gioNhacNho;
 
   String _danhMucChon = 'Công việc';
-  String _uuTienChon = 'Trung Bình'; // Đã sửa lỗi logic: Đổi 'Medium' thành 'Trung Bình' cho khớp với List
+  String _uuTienChon = 'Trung Bình'; 
 
   final List<String> _danhMucList = ["Học tập", "Công việc", "Cá nhân", "Sức khỏe", "Khác"];
   final List<String> _uuTienList = ["Thấp", "Trung Bình", "Cao"];
@@ -40,12 +37,10 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
   @override
   void initState() {
     super.initState();
-    // 🔥 ĐỔ DỮ LIỆU CŨ VÀO FORM NẾU ĐANG Ở CHẾ ĐỘ SỬA
     if (widget.congViec != null) {
       _tieuDeController.text = widget.congViec!.tieuDe;
       _moTaController.text = widget.congViec!.noiDung;
       
-      // 1. Load Danh mục và Độ ưu tiên
       if (_danhMucList.contains(widget.congViec!.danhMuc)) {
         _danhMucChon = widget.congViec!.danhMuc!;
       }
@@ -53,7 +48,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
         _uuTienChon = widget.congViec!.mucDoUuTien!;
       }
 
-      // 2. Bóc tách Thời gian Hoàn thành (Hạn chót)
       try {
         if (widget.congViec!.ngayThucHien.contains(' - ')) {
           List<String> parts = widget.congViec!.ngayThucHien.split(' - ');
@@ -66,7 +60,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
         debugPrint("Lỗi đọc ngày hoàn thành: $e");
       }
 
-      // 3. Bóc tách Thời gian Bắt đầu (Nhắc nhở)
       try {
         if (widget.congViec!.thoiGianNhacNho != null && widget.congViec!.thoiGianNhacNho!.contains(' - ')) {
           List<String> parts = widget.congViec!.thoiGianNhacNho!.split(' - ');
@@ -81,7 +74,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
     }
   }
 
-  // Helper dịch Danh mục
   String _dichDanhMuc(String cat, bool isEn) {
     if (!isEn) return cat;
     switch (cat) {
@@ -94,7 +86,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
     }
   }
 
-  // Helper dịch Mức độ ưu tiên
   String _dichUuTien(String pri, bool isEn) {
     if (!isEn) return pri;
     switch (pri) {
@@ -112,7 +103,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
       builder: (context, child) => Theme(
-        // Cập nhật Dark Mode cho cái Lịch chọn ngày
         data: Theme.of(context).copyWith(
           colorScheme: isDark 
               ? const ColorScheme.dark(primary: Colors.blue) 
@@ -137,7 +127,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
       context: context,
       initialTime: TimeOfDay.now(),
       builder: (context, child) => Theme(
-        // Cập nhật Dark Mode cho Đồng hồ chọn giờ
         data: Theme.of(context).copyWith(
           colorScheme: isDark 
               ? const ColorScheme.dark(primary: Colors.blue) 
@@ -162,7 +151,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
 
     if (_formKey.currentState!.validate()) {
       
-      // 🔥 BƯỚC KIỂM TRA LOGIC THỜI GIAN
       if (_ngayNhacNho != null && _ngayChon != null) {
         int gioBatDau = _gioNhacNho?.hour ?? 0;
         int phutBatDau = _gioNhacNho?.minute ?? 0;
@@ -198,14 +186,12 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
         }
       }
 
-      // Xử lý chuỗi Hạn chót
       String chuoiHanChot = widget.congViec?.ngayThucHien ?? DateFormat('HH:mm - dd/MM/yyyy').format(DateTime.now());
       if (_ngayChon != null) {
         String gio = _gioChon != null ? '${_gioChon!.hour.toString().padLeft(2, '0')}:${_gioChon!.minute.toString().padLeft(2, '0')}' : '00:00';
         chuoiHanChot = "$gio - ${DateFormat('dd/MM/yyyy').format(_ngayChon!)}";
       }
 
-      // Xử lý chuỗi Giờ nhắc nhở
       String? chuoiNhacNho = widget.congViec?.thoiGianNhacNho;
       if (_ngayNhacNho != null) {
         String gioNhac = _gioNhacNho != null ? '${_gioNhacNho!.hour.toString().padLeft(2, '0')}:${_gioNhacNho!.minute.toString().padLeft(2, '0')}' : '00:00';
@@ -243,7 +229,10 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
           _gioNhacNho!.hour, _gioNhacNho!.minute
         );
         
-        int notifId = cvLuu.maCongViec != null ? cvLuu.maCongViec.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        // 🔥 ĐÃ SỬA LỖI Ở ĐÂY: Tạo ID độc nhất không bao giờ trùng lặp
+        int notifId = cvLuu.maCongViec != null 
+            ? cvLuu.maCongViec.hashCode 
+            : DateTime.now().millisecondsSinceEpoch.remainder(100000);
 
         String tieuDeThongBao = "";
         if (cvLuu.mucDoUuTien == 'Cao') {
@@ -273,11 +262,9 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Lấy trạng thái Ngôn ngữ và Giao diện
     final isEn = context.watch<CaiDatProvider>().isEnglish;
     final isDark = context.watch<CaiDatProvider>().isDarkMode;
 
-    // 2. Định nghĩa màu sắc linh hoạt
     final bgColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
 
@@ -303,7 +290,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
         child: ListView(
           padding: const EdgeInsets.all(24.0),
           children: [
-            // ── Tiêu đề ──
             _buildLabel(isEn ? "Task title" : "Tiêu đề công việc", isDark, isRequired: true),
             TextFormField(
               controller: _tieuDeController,
@@ -315,7 +301,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
             ),
             const SizedBox(height: 24),
 
-            // ── Mô tả ──
             _buildLabel(isEn ? "Description" : "Mô tả", isDark),
             TextFormField(
               controller: _moTaController,
@@ -325,7 +310,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
             ),
             const SizedBox(height: 24),
 
-            // ── Khối 1: Bắt đầu ──
             _buildLabel(isEn ? "Start time" : "Thời gian bắt đầu", isDark),
             Row(
               children: [
@@ -360,7 +344,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
             ),
             const SizedBox(height: 24),
 
-            // ── Khối 2: Giờ hoàn thành ──
             _buildLabel(isEn ? "Completion time" : "Thời gian hoàn thành", isDark, isRequired: true),
             Row(
               children: [
@@ -395,7 +378,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
             ),
             const SizedBox(height: 24),
 
-            // ── Danh mục ──
             Row(
               children: [
                 Icon(Icons.sell_outlined, size: 18, color: Colors.blue.shade600),
@@ -433,7 +415,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
             ),
             const SizedBox(height: 24),
 
-            // ── Mức độ ưu tiên ──
             _buildLabel(isEn ? "Priority" : "Mức độ ưu tiên", isDark),
             Row(
               children: _uuTienList.map((pri) {
@@ -475,7 +456,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
         ),
       ),
       
-      // ── Nút Lưu ──
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -499,7 +479,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
     );
   }
 
-  // Cập nhật các hàm Helper bên dưới để hỗ trợ Dark Mode
   Widget _buildTimePickerBox(String text, IconData icon, bool hasData, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

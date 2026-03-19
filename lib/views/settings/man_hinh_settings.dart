@@ -22,10 +22,8 @@ class ManHinhSettings extends StatefulWidget {
 }
 
 class _ManHinhSettingsState extends State<ManHinhSettings> {
-  // Đã xóa bỏ dòng bool _isNotifEnabled = true; gây lỗi load lại tự bật
   bool _isLoadingDelete = false; 
 
-  // ── HÀM 1: ĐĂNG XUẤT ──
   void _xuLyDangXuat(bool isEng) async {
     bool confirm = await showDialog(
       context: context,
@@ -52,7 +50,6 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
     }
   }
 
-  // ── HÀM 2: HIỂN THỊ MENU TÙY CHỌN XÓA ──
   void _hienThiMenuXoaDuLieu(bool isEng, BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -92,7 +89,6 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
     );
   }
 
-  // ── HÀM 3: CHỌN NGÀY VÀ CHO XEM TRƯỚC DANH SÁCH VIỆC SẼ XÓA (ĐÃ SỬA LỖI MÙ TỊT) ──
   Future<void> _chonNgayDeXoa(bool isEng, BuildContext context) async {
     DateTime? picked = await showDatePicker(
       context: context,
@@ -108,19 +104,16 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
     if (picked != null && mounted) {
       String strNgay = DateFormat('dd/MM/yyyy').format(picked);
 
-      // Lấy danh sách công việc hiện có từ Provider để lọc
       final provider = Provider.of<QuanLyCongViecProvider>(context, listen: false);
       final viecTrongNgay = provider.danhSachCongViec.where((cv) {
-        return (cv.ngayThucHien ?? '').contains(strNgay);
+        return (cv.ngayThucHien ).contains(strNgay);
       }).toList();
 
-      // Nếu ngày đó trống trơn
       if (viecTrongNgay.isEmpty) {
         _hienThongBao(isEng ? "No tasks found on $strNgay." : "Tuyệt vời! Ngày $strNgay không có việc nào để xóa cả.");
         return;
       }
 
-      // Hiện hộp thoại danh sách các việc sẽ bị xóa
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -142,8 +135,8 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () {
-                Navigator.pop(ctx); // Đóng preview
-                _xacNhanXoaDuLieu(isEng, context, picked); // Tiếp tục gọi lệnh xóa
+                Navigator.pop(ctx); 
+                _xacNhanXoaDuLieu(isEng, context, picked); 
               },
               child: Text(isEng ? "Delete (${viecTrongNgay.length})" : "Xóa toàn bộ (${viecTrongNgay.length})", style: const TextStyle(color: Colors.white)),
             )
@@ -153,7 +146,6 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
     }
   }
 
-  // ── HÀM 4: XÓA VÀ TỰ ĐỘNG LOAD LẠI TRANG (ĐÃ SỬA LỖI PHẢI THOÁT APP) ──
   void _xacNhanXoaDuLieu(bool isEng, BuildContext context, DateTime? ngayXoa) {
     String strNgay = ngayXoa != null ? DateFormat('dd/MM/yyyy').format(ngayXoa) : "";
     
@@ -191,12 +183,10 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
 
                         int count = 0;
                         if (ngayXoa == null) {
-                          // 1. XÓA TẤT CẢ
                           for (var doc in taskDocs.docs) { await doc.reference.delete(); }
                           try { await HoTroSQLite().xoaTatCa(); } catch(e){} 
                           count = taskDocs.docs.length;
                         } else {
-                          // 2. XÓA THEO NGÀY
                           for (var doc in taskDocs.docs) {
                             String ngayThucHien = doc.data()['ngayThucHien'] ?? '';
                             if (ngayThucHien.contains(strNgay)) {
@@ -207,10 +197,9 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                         }
 
                         if (mounted) {
-                          Navigator.pop(contextDialog); // Đóng popup
+                          Navigator.pop(contextDialog); 
                           _hienThongBao(isEng ? "Deleted $count tasks successfully." : "Đã xóa thành công $count công việc.");
                           
-                          // 🔥 ĐÂY LÀ ĐOẠN F5 LẠI APP MÀ KHÔNG CẦN THOÁT RA VÀO LẠI 🔥
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(builder: (context) => const ManHinhChinh()),
@@ -270,7 +259,6 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
           return SingleChildScrollView(
             child: Column(
               children: [
-                // ── 1. HEADER & THẺ THỐNG KÊ ──
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -349,13 +337,11 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                 ),
                 const SizedBox(height: 70),
 
-                // ── 2. CÁC MỤC CÀI ĐẶT ──
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // --- NGÔN NGỮ ---
                       _buildSectionTitle(isEng ? "LANGUAGE" : "NGÔN NGỮ"),
                       _buildSettingsCard(
                         cardColor: cardColor,
@@ -369,7 +355,6 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                       ),
                       const SizedBox(height: 24),
 
-                      // --- GIAO DIỆN ---
                       _buildSectionTitle(isEng ? "APPEARANCE" : "GIAO DIỆN"),
                       _buildSettingsCard(
                         cardColor: cardColor,
@@ -383,7 +368,6 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                       ),
                       const SizedBox(height: 24),
 
-                      // --- THÔNG BÁO (ĐÃ KẾT NỐI VỚI PROVIDER) ---
                       _buildSectionTitle(isEng ? "NOTIFICATIONS" : "THÔNG BÁO"),
                       _buildSettingsCard(
                         cardColor: cardColor,
@@ -391,14 +375,13 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                           _buildSwitchTile(
                             icon: Icons.notifications_active, iconColor: Colors.blue, bgColor: Colors.blue.shade50,
                             title: isEng ? "App Notifications" : "Thông báo ứng dụng", subtitle: isEng ? "Allow task reminders" : "Cho phép app réo chuông báo đến hạn", textColor: textColor,
-                            value: caiDat.isNotifEnabled, // Đã lấy đúng trạng thái
-                            onChanged: (val) => caiDat.doiThongBao(val), // Đã lưu đúng trạng thái
+                            value: caiDat.isNotifEnabled, 
+                            onChanged: (val) => caiDat.doiThongBao(val), 
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
 
-                      // --- QUẢN LÝ DỮ LIỆU ---
                       _buildSectionTitle(isEng ? "DATA MANAGEMENT" : "QUẢN LÝ DỮ LIỆU", isDanger: true),
                       _buildSettingsCard(
                         cardColor: cardColor,
@@ -414,7 +397,6 @@ class _ManHinhSettingsState extends State<ManHinhSettings> {
                       ),
                       const SizedBox(height: 24),
 
-                      // --- NÚT ĐĂNG XUẤT ---
                       _buildSettingsCard(
                         cardColor: cardColor,
                         children: [

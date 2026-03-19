@@ -8,19 +8,17 @@ class QuanLyGiaoDienProvider with ChangeNotifier {
   bool get laCheDoToi => _laCheDoToi;
 
   QuanLyGiaoDienProvider() {
-    taiGiaoDienTuCauHinh(); // Tự động đọc dữ liệu khi mở app
+    taiGiaoDienTuCauHinh();
   }
 
-  // Lấy dữ liệu đã lưu
   Future<void> taiGiaoDienTuCauHinh() async {
     _laCheDoToi = await _dichVuCauHinh.docCheDoToi();
     notifyListeners();
   }
 
-  // Hàm đổi giao diện khi người dùng bấm nút gạt
   void doiGiaoDien(bool giaTriMoi) {
     _laCheDoToi = giaTriMoi;
-    _dichVuCauHinh.luuCheDoToi(giaTriMoi); // Lưu xuống bộ nhớ
-    notifyListeners(); // Ra lệnh cho toàn App đổi màu
+    _dichVuCauHinh.luuCheDoToi(giaTriMoi);
+    notifyListeners();
   }
 }
