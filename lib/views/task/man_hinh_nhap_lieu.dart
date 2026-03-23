@@ -21,6 +21,7 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
   
   final TextEditingController _tieuDeController = TextEditingController();
   final TextEditingController _moTaController = TextEditingController();
+  final TextEditingController _danhMucKhacController = TextEditingController(); 
 
   DateTime? _ngayChon;
   TimeOfDay? _gioChon;
@@ -43,7 +44,11 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
       
       if (_danhMucList.contains(widget.congViec!.danhMuc)) {
         _danhMucChon = widget.congViec!.danhMuc!;
+      } else if (widget.congViec!.danhMuc != null && widget.congViec!.danhMuc!.isNotEmpty) {
+        _danhMucChon = 'Khác';
+        _danhMucKhacController.text = widget.congViec!.danhMuc!;
       }
+
       if (_uuTienList.contains(widget.congViec!.mucDoUuTien)) {
         _uuTienChon = widget.congViec!.mucDoUuTien!;
       }
@@ -72,6 +77,14 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
         debugPrint("Lỗi đọc ngày nhắc nhở: $e");
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _tieuDeController.dispose();
+    _moTaController.dispose();
+    _danhMucKhacController.dispose();
+    super.dispose();
   }
 
   String _dichDanhMuc(String cat, bool isEn) {
@@ -198,6 +211,11 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
         chuoiNhacNho = "$gioNhac - ${DateFormat('dd/MM/yyyy').format(_ngayNhacNho!)}";
       }
 
+      String danhMucCuoiCung = _danhMucChon;
+      if (_danhMucChon == 'Khác' && _danhMucKhacController.text.trim().isNotEmpty) {
+        danhMucCuoiCung = _danhMucKhacController.text.trim();
+      }
+
       final cvLuu = CongViec(
         maCongViec: widget.congViec?.maCongViec,
         tieuDe: _tieuDeController.text.trim(),
@@ -205,7 +223,7 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
         ngayThucHien: chuoiHanChot, 
         thoiGianNhacNho: chuoiNhacNho, 
         trangThai: widget.congViec?.trangThai ?? 0,
-        danhMuc: _danhMucChon,
+        danhMuc: danhMucCuoiCung,  
         mucDoUuTien: _uuTienChon,
       );
 
@@ -229,7 +247,6 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
           _gioNhacNho!.hour, _gioNhacNho!.minute
         );
         
-        // 🔥 ĐÃ SỬA LỖI Ở ĐÂY: Tạo ID độc nhất không bao giờ trùng lặp
         int notifId = cvLuu.maCongViec != null 
             ? cvLuu.maCongViec.hashCode 
             : DateTime.now().millisecondsSinceEpoch.remainder(100000);
@@ -413,6 +430,25 @@ class _ManHinhNhapLieuState extends State<ManHinhNhapLieu> {
                 );
               }).toList(),
             ),
+
+            if (_danhMucChon == 'Khác') ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _danhMucKhacController,
+                style: TextStyle(color: textColor),
+                decoration: _inputDecoration(
+                  isEn ? "Enter custom category..." : "Nhập danh mục khác...", 
+                  isDark
+                ),
+                validator: (value) {
+                  if (_danhMucChon == 'Khác' && (value == null || value.trim().isEmpty)) {
+                    return isEn ? 'Please enter a category name' : 'Vui lòng nhập tên danh mục';
+                  }
+                  return null;
+                },
+              ),
+            ],
+
             const SizedBox(height: 24),
 
             _buildLabel(isEn ? "Priority" : "Mức độ ưu tiên", isDark),

@@ -122,12 +122,16 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
             }
           }
 
+          // 🔥 MỚI: Danh sách các danh mục mặc định
+          final List<String> defaultCats = ["Học tập", "Công việc", "Cá nhân", "Sức khỏe"];
+
+          // 🔥 MỚI: Gom tất cả các danh mục tự gõ tay vào mục "Khác"
           Map<String, int> thongKeDanhMuc = {
             "Học tập": tasks.where((t) => t.danhMuc == "Học tập").length,
             "Công việc": tasks.where((t) => t.danhMuc == "Công việc").length,
             "Cá nhân": tasks.where((t) => t.danhMuc == "Cá nhân").length,
             "Sức khỏe": tasks.where((t) => t.danhMuc == "Sức khỏe").length,
-            "Khác": tasks.where((t) => t.danhMuc == "Khác").length,
+            "Khác": tasks.where((t) => !defaultCats.contains(t.danhMuc)).length,
           };
 
           String statusTitle;
@@ -428,6 +432,9 @@ class _ManHinhDanhSachChiTietState extends State<ManHinhDanhSachChiTiet> {
                 List<CongViec> filteredList = [];
                 final now = DateTime.now();
                 final todayDate = DateTime(now.year, now.month, now.day);
+                
+                // 🔥 MỚI: Danh sách các danh mục mặc định để dùng cho phần filter
+                final List<String> defaultCats = ["Học tập", "Công việc", "Cá nhân", "Sức khỏe"];
 
                 for (var t in provider.danhSachCongViec) {
                   DateTime? taskDate = phanTichNgay(t.ngayThucHien.toString());
@@ -441,7 +448,16 @@ class _ManHinhDanhSachChiTietState extends State<ManHinhDanhSachChiTiet> {
                   else if (widget.loaiBoLoc == 'missed') passLoc = t.trangThai == 0 && nDate != null && nDate.isBefore(todayDate);
                   else if (widget.loaiBoLoc == 'today_pending') passLoc = t.trangThai == 0 && nDate != null && nDate.isAtSameMomentAs(todayDate);
                   else if (widget.loaiBoLoc == 'today_done') passLoc = t.trangThai == 1 && nDate != null && nDate.isAtSameMomentAs(todayDate);
-                  else if (widget.loaiBoLoc.startsWith('cat_')) passLoc = t.danhMuc == widget.loaiBoLoc.substring(4);
+                  else if (widget.loaiBoLoc.startsWith('cat_')) {
+                    // 🔥 MỚI: Xử lý lọc danh sách khi bấm vào thanh danh mục
+                    String catType = widget.loaiBoLoc.substring(4);
+                    if (catType == 'Khác') {
+                      // Nếu chọn xem "Khác" -> Lọc tất cả những việc không thuộc 4 nhóm cơ bản
+                      passLoc = !defaultCats.contains(t.danhMuc);
+                    } else {
+                      passLoc = t.danhMuc == catType;
+                    }
+                  }
 
                   if (passLoc && _tuKhoaTimKiem.isNotEmpty) {
                     final keyword = _tuKhoaTimKiem.toLowerCase();
