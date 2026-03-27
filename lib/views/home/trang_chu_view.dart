@@ -363,7 +363,7 @@ class _TrangChuViewState extends State<TrangChuView> with SingleTickerProviderSt
                                     onTap: () => _cuonDenMuc(_keyQuaHan, 'QuaHan'),
                                   ),
                                   _buildClickableBullet(
-                                    text: isEng ? "• Today's tasks: $viecHomNayTong" : "• Hôm nay cần làm: $viecHomNayTong việc",
+                                    text: isEng ? "• Today's tasks: $viecHomNayTong" : "• Việc hôm nay: $viecHomNayTong việc",
                                     color: Colors.greenAccent,
                                     isActive: _mucDangHighlight == 'HomNay',
                                     onTap: () => _cuonDenMuc(_keyHomNay, 'HomNay'),

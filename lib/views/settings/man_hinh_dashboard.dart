@@ -122,10 +122,8 @@ class _ManHinhDashboardState extends State<ManHinhDashboard> {
             }
           }
 
-          // 🔥 MỚI: Danh sách các danh mục mặc định
           final List<String> defaultCats = ["Học tập", "Công việc", "Cá nhân", "Sức khỏe"];
 
-          // 🔥 MỚI: Gom tất cả các danh mục tự gõ tay vào mục "Khác"
           Map<String, int> thongKeDanhMuc = {
             "Học tập": tasks.where((t) => t.danhMuc == "Học tập").length,
             "Công việc": tasks.where((t) => t.danhMuc == "Công việc").length,
@@ -433,7 +431,6 @@ class _ManHinhDanhSachChiTietState extends State<ManHinhDanhSachChiTiet> {
                 final now = DateTime.now();
                 final todayDate = DateTime(now.year, now.month, now.day);
                 
-                // 🔥 MỚI: Danh sách các danh mục mặc định để dùng cho phần filter
                 final List<String> defaultCats = ["Học tập", "Công việc", "Cá nhân", "Sức khỏe"];
 
                 for (var t in provider.danhSachCongViec) {
@@ -449,10 +446,8 @@ class _ManHinhDanhSachChiTietState extends State<ManHinhDanhSachChiTiet> {
                   else if (widget.loaiBoLoc == 'today_pending') passLoc = t.trangThai == 0 && nDate != null && nDate.isAtSameMomentAs(todayDate);
                   else if (widget.loaiBoLoc == 'today_done') passLoc = t.trangThai == 1 && nDate != null && nDate.isAtSameMomentAs(todayDate);
                   else if (widget.loaiBoLoc.startsWith('cat_')) {
-                    // 🔥 MỚI: Xử lý lọc danh sách khi bấm vào thanh danh mục
                     String catType = widget.loaiBoLoc.substring(4);
                     if (catType == 'Khác') {
-                      // Nếu chọn xem "Khác" -> Lọc tất cả những việc không thuộc 4 nhóm cơ bản
                       passLoc = !defaultCats.contains(t.danhMuc);
                     } else {
                       passLoc = t.danhMuc == catType;

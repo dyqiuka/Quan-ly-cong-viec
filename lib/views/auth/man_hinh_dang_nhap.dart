@@ -226,7 +226,6 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
     final isEn = context.watch<CaiDatProvider>().isEnglish;
     final isDark = context.watch<CaiDatProvider>().isDarkMode;
 
-    // Phối màu mang phong cách Productivity (Tối giản, chuyên nghiệp)
     final bgColor = isDark ? const Color(0xFF121212) : const Color(0xFFF4F7FC);
     final textColor = isDark ? Colors.white : Colors.black87;
     final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
@@ -244,7 +243,7 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // --- THAY ĐỔI: Thêm Header Logo & Tên App ---
+                    
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -267,7 +266,6 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
                       style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.grey[600], fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 36),
-                    // ---------------------------------------------
 
                     Container(
                       height: 150,
@@ -275,7 +273,7 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
                       decoration: BoxDecoration(
                         color: cardColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.blue.shade100, width: 4), // Khung viền cho teddy
+                        border: Border.all(color: Colors.blue.shade100, width: 4),  
                         boxShadow: [
                           BoxShadow(
                             color: isDark ? Colors.black54 : Colors.blue.withValues(alpha: 0.1),
@@ -384,7 +382,7 @@ class _ManHinhDangNhapState extends State<ManHinhDangNhap> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blue.shade600,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  elevation: 0, // Bỏ bóng đổ để phẳng và hiện đại hơn
+                                  elevation: 0,  
                                 ),
                                 child: _dangTai 
                                     ? const CircularProgressIndicator(color: Colors.white) 
